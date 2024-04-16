@@ -2,3 +2,8 @@
 .venv/
 .vscode/settings.json
 *.log
+build/
+dist/
+__pycache__/
+*.py[cod]
+*$py.class
