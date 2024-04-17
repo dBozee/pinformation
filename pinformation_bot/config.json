@@ -1,7 +1,7 @@
 {
     "prefix": "+",
-    "permitted_users": ["160074289289101313"],
-    "permitted_roles": ["1229906599678836817"],
+    "permitted_users": [],
+    "permitted_roles": [],
     "embed_color": 14517504,
     "cogs": ["pinformation_bot.cogs.mgmt_cog"]
 }
