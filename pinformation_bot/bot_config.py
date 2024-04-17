@@ -1,8 +1,12 @@
-from dataclasses import dataclass, asdict
-from typing import Optional
+from dataclasses import asdict, dataclass
 from json import dump
 from pathlib import Path
+from typing import Optional
 
+from discord.ext import commands
+from logging import getLogger
+
+log = getLogger(__name__)
 JSON_FILE = Path(Path(__file__).parent / "config.json")
 
 
@@ -20,6 +24,23 @@ class BotConfig:
     cogs: Optional[list[str]]
 
     def write_config_to_json(self):
+        log.debug(f"Opening config file at: {str(JSON_FILE)}")
         outfile = JSON_FILE.open("w")
         dump(asdict(self), outfile, indent=4)
         outfile.close()
+        log.debug("Finished writing to config file")
+
+
+async def check_permitted(ctx: commands.Context) -> bool:
+    """
+    checks if ctx author is allow listed either by their user_id or a role_id.
+    If false, user is given ephemeral message that they don't have permission
+    and logs that user tried to use role otuside their permissions.
+    """
+    if str(ctx.author.id) in ctx.bot.config.permitted_users:
+        return True
+    if any(role for role in ctx.author.roles if str(role.id) in ctx.bot.config.permitted_roles):
+        return True
+    await ctx.reply("You are not authorized to use this command!", ephemeral=True)
+    log.warning(f"{ctx.author.name}({ctx.author.id}): attempted to use the {ctx.command} command.")
+    return False

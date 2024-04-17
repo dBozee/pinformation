@@ -4,6 +4,7 @@ import discord
 from .bot_config import BotConfig
 from discord.ext import commands
 from asyncio import sleep
+from .pins import Pin
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -25,6 +26,7 @@ class PinformationBot(commands.Bot):
         )
 
         self.config = config
+        self.pins: dict[int, Pin] = {}
 
     async def setup_hook(self):
         # add cogs
@@ -34,20 +36,6 @@ class PinformationBot(commands.Bot):
         # sync all commands
         synced = await self.tree.sync()
         log.info(f"Added main cog commands... Synced {len(synced)} commands")
-
-    async def check_permitted(self, ctx: commands.Context) -> bool:
-        """
-        checks if ctx author is allow listed either by their user_id or a role_id.
-        If false, user is given ephemeral message that they don't have permission
-        and logs that user tried to use role otuside their permissions.
-        """
-        if str(ctx.author.id) in self.config.permitted_users:
-            return True
-        if any(role for role in ctx.author.roles if str(role.id) in self.config.permitted_roles):
-            return True
-        await ctx.reply("You are not authorized to use this command!", ephemeral=True)
-        log.warning(f"{ctx.author.name}({ctx.author.id}): attempted to use the {ctx.command} command.")
-        return False
 
     async def reload_extensions(self) -> list[str]:
         ext_count: int = len(self.extensions)
