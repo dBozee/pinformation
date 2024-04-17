@@ -1,5 +1,4 @@
 from asyncio import sleep
-from datetime import datetime, timezone
 from logging import getLogger
 from typing import Literal
 
@@ -8,6 +7,7 @@ from discord.ext import commands
 from pkg_resources import get_distribution
 
 from ..pinformation import PinformationBot
+from ..bot_config import check_permitted
 
 log = getLogger(__name__)
 VERSION = get_distribution("pinformation").version
@@ -22,14 +22,7 @@ class ManagementCog(commands.Cog, name="Main"):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        log.info(
-            (
-                "\n--------------------\n"
-                f"Logged in as {self.bot.user}, ID: {self.bot.user.id}"
-                f"\nat: {datetime.now(timezone.utc)}"
-                "\n--------------------"
-            )
-        )
+        log.info("Management cog is ready!")
 
     @commands.hybrid_command(name="botinfo")
     async def info_embed(self, ctx: commands.Context):  # unprived command
@@ -47,26 +40,25 @@ class ManagementCog(commands.Cog, name="Main"):
         await ctx.reply(embed=embed, mention_author=False, ephemeral=True)
 
     @commands.hybrid_command(name="shutdown")
+    @commands.check(check_permitted)
     async def shutdown(self, ctx: commands.Context):
         """
         Shut down the bot.
         """
-        if not await self.bot.check_permitted(ctx):
-            return
 
         self.bot.log_action(ctx, "Shut down the bot")
+        # TODO: cache active pins to be reloaded on restart
         await ctx.reply("Shutting down...", ephemeral=True)
         await sleep(1)
         await self.bot.close()
         exit()
 
     @commands.hybrid_command(name="manageuser")
+    @commands.check(check_permitted)
     async def manage_user(self, ctx: commands.Context, user_id: str, action: Literal["add", "remove"]):
         """
         Add or remove a user from the bot permissions.
         """
-        if not await self.bot.check_permitted(ctx):
-            return
         if not self.bot.get_user(int(user_id)):
             await ctx.reply(f"No user with {user_id} found.", ephemeral=True)
             return
@@ -85,12 +77,11 @@ class ManagementCog(commands.Cog, name="Main"):
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="managerole")
+    @commands.check(check_permitted)
     async def manage_role(self, ctx: commands.Context, role_id: str, action: Literal["add", "remove"]):
         """
         Add or remove a role from the bot permissions.
         """
-        if not await self.bot.check_permitted(ctx):
-            return
         if int(role_id) not in ctx.guild.roles:
             await ctx.reply(f"No role with {role_id} found.", ephemeral=True)
             return
@@ -109,9 +100,8 @@ class ManagementCog(commands.Cog, name="Main"):
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="reload")
+    @commands.check(check_permitted)
     async def reload(self, ctx: commands.Context):
-        if not await self.bot.check_permitted(ctx):
-            return
         reloaded = await self.bot.reload_extensions()
         if reloaded:
             await ctx.reply(f"Sucessfully reloaded {', '.join(reloaded)}", ephemeral=True)
