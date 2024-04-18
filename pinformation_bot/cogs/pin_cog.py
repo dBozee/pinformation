@@ -134,7 +134,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         )
         for channel_id, pin_obj in self.bot.pins.items():
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
-            embed.add_field(name=self.bot.get_channel(channel_id).name, value=pin_obj.get_self_data())
+            embed.add_field(name=f"#{self.bot.get_channel(channel_id).name}", value=pin_obj.get_self_data())
         await ctx.reply(embed=embed, ephemeral=True)
 
     async def _update_pin_message(self, message: discord.Message):

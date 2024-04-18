@@ -1,7 +1,7 @@
-from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 import discord
+from datetime import datetime, timezone
 
 
 class Pin:
@@ -13,9 +13,10 @@ class Pin:
         self.msg_count = 0
         self.message_obj: Any = None
         self.last_message: Optional[discord.Message.id] = None
+        self.started = datetime.now(timezone.utc).timestamp()
 
     def get_self_data(self):
-        return f"Channel ID: <#{self.channel_id}>, Message speed: {self.speed_msgs}"
+        return f"Message speed: {self.speed_msgs}\nPinned: <t:{int(self.started)}:f>"
 
     def increment_msg_count(self):
         self.msg_count += 1
