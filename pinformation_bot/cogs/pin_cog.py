@@ -21,9 +21,12 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author == self.bot.user:
-            return
-        # TODO: some sort of counter by channel?
+        if message.channel.id in self.bot.pins:
+            chann_id = message.channel.id
+            if message.author != self.bot.user:
+                self.bot.pins[chann_id].increment_msg_count()
+                if self.bot.pins[chann_id].msg_count >= self.bot.pins[chann_id].speed_msgs:
+                    await self._update_pin_message(message)
 
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
@@ -34,8 +37,9 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         pin = TextPin(channel_id=ctx.channel.id, text=text)
         self.bot.pins[ctx.channel.id] = pin
         await ctx.reply("Started text pin!", ephemeral=True)
-        ctx.send(pin.text)
-        # TODO: add some sort of cache for pins to persist.
+        message = await ctx.channel.send(pin.text)
+        pin.last_message = message.id
+        # TODO: add some sort of cache for pins to persist through crashes/restarts
 
     @commands.hybrid_command(name="pinembed")
     @commands.check(check_permitted)
@@ -61,33 +65,35 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         )
         self.bot.pins[ctx.channel.id] = pin
         await ctx.reply("Started embed pin!", ephemeral=True)
-        await ctx.send(embed=pin.embed)
+        message = await ctx.channel.send(embed=pin.embed)
+        pin.last_message = message.id
         # TODO: add some sort of cache
 
-    @commands.hybrid_command(name="pinpoll")
-    @commands.check(check_permitted)
-    async def pin_poll(
-        self,
-        ctx: commands.Context,
-        title: str,
-        options: str,
-        color: Optional[int],
-    ):
-        """
-        Pin a poll to the current channel.
-        Options should be comma separated values. Ex: Option1,Option2,Option3
-        Requires active pin.
-        """
-        pin = PollPin(
-            channel_id=ctx.channel.id,
-            title=title,
-            options=options.split(","),
-            color=color or self.bot.config.embed_color,
-        )
-        self.bot.pins[ctx.channel.id] = pin
-        await ctx.reply("Started embed pin!", ephemeral=True)
-        await ctx.send(embed=pin.embed)
-        # TODO: add some sort of cache
+    # @commands.hybrid_command(name="pinpoll") # TODO: figure out button interactions
+    # @commands.check(check_permitted)
+    # async def pin_poll(
+    #     self,
+    #     ctx: commands.Context,
+    #     title: str,
+    #     options: str,
+    #     color: Optional[int],
+    # ):
+    #     """
+    #     Pin a poll to the current channel.
+    #     Options should be comma separated values. Ex: Option1,Option2,Option3
+    #     Requires active pin.
+    #     """
+    #     options_split = options.split(",")
+    #     pin = PollPin(
+    #         channel_id=ctx.channel.id,
+    #         title=title,
+    #         options=options_split,
+    #         color=color or self.bot.config.embed_color,
+    #     )
+    #     self.bot.pins[ctx.channel.id] = pin
+    #     await ctx.reply("Started embed pin!", ephemeral=True)
+    #     await ctx.channel.send(embed=pin.embed, view=pin.view)
+    #     # TODO: add some sort of cache
 
     @commands.hybrid_command(name="pinstop")
     @commands.check(check_permitted)
@@ -111,8 +117,8 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         if not self.bot.pins.get(ctx.channel.id):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
-        self.bot.pins[ctx.channel.id].speed = speed
-        await ctx.reply(f"{ctx.channel.name} set to {speed} messages", ephemeral=True)
+        self.bot.pins[ctx.channel.id].speed_msgs = speed
+        await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} messages", ephemeral=True)
         # TODO: adjust speed of pin message. Either in message count or time.
 
     @commands.hybrid_command(name="allpins")
@@ -127,6 +133,14 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
             embed.add_field(name=self.bot.get_channel(channel_id).name, value=pin_obj.get_self_data())
         await ctx.reply(embed=embed, ephemeral=True)
+
+    async def _update_pin_message(self, message: discord.Message):
+        chann_id = message.channel.id
+        last_bot_msg = await message.channel.fetch_message(self.bot.pins[chann_id].last_message)
+        await last_bot_msg.delete()
+        new_msg = await message.channel.send(**self.bot.pins[chann_id]._rebuild_msg())
+        self.bot.pins[chann_id].msg_count = 0
+        self.bot.pins[chann_id].last_message = new_msg.id
 
 
 async def setup(bot: PinformationBot):
