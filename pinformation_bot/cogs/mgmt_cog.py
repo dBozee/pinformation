@@ -59,7 +59,7 @@ class ManagementCog(commands.Cog, name="Main"):
         """
         Add or remove a user from the bot permissions.
         """
-        if not self.bot.get_user(int(user_id)):
+        if not (user := self.bot.get_user(int(user_id))):
             await ctx.reply(f"No user with {user_id} found.", ephemeral=True)
             return
         if action == "add":
@@ -67,13 +67,15 @@ class ManagementCog(commands.Cog, name="Main"):
                 await ctx.reply("User already in permitted list!", ephemeral=True)
                 return
             self.bot.config.permitted_users.append(user_id)
-            self.bot.log_action(ctx, f"Added {user_id} to user permissions")
+            self.bot.log_action(ctx, f"Added {user.name}({user_id}) to user permissions")
+            await ctx.reply(f"Added {user.name}({user_id}) to user permissions", ephemeral=True)
         if action == "remove":
             if user_id not in self.bot.config.permitted_users:
                 await ctx.reply("User not in permitted list!", ephemeral=True)
                 return
             self.bot.config.permitted_users.remove(user_id)
-            self.bot.log_action(ctx, f"Removed {user_id} from user permissions")
+            self.bot.log_action(ctx, f"Removed  {user.name}({user_id}) from user permissions")
+            await ctx.reply(f"Removed {user.name}({user_id}) from user permissions", ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="managerole")
@@ -82,7 +84,8 @@ class ManagementCog(commands.Cog, name="Main"):
         """
         Add or remove a role from the bot permissions.
         """
-        if int(role_id) not in ctx.guild.roles:
+
+        if not (role := ctx.guild.get_role(int(role_id))):
             await ctx.reply(f"No role with {role_id} found.", ephemeral=True)
             return
         if action == "add":
@@ -90,13 +93,15 @@ class ManagementCog(commands.Cog, name="Main"):
                 await ctx.reply("Role already in permitted list!", ephemeral=True)
                 return
             self.bot.config.permitted_roles.append(role_id)
-            self.bot.log_action(ctx, f"Added {role_id} to role permissions")
+            self.bot.log_action(ctx, f"Added {role.name}({role_id}) to role permissions")
+            await ctx.reply(f"Added {role.name}({role_id}) to role permissions", ephemeral=True)
         if action == "remove":
             if role_id not in self.bot.config.permitted_roles:
                 await ctx.reply("Role not in permitted list!", ephemeral=True)
                 return
             self.bot.config.permitted_roles.remove(role_id)
-            self.bot.log_action(ctx, f"Removed {role_id} from role permissions")
+            self.bot.log_action(ctx, f"Removed {role.name}({role_id}) from role permissions")
+            await ctx.reply(f"Romved {role.name}({role_id}) from role permissions", ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="reload")

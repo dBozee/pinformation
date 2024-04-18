@@ -81,7 +81,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     #     """
     #     Pin a poll to the current channel.
     #     Options should be comma separated values. Ex: Option1,Option2,Option3
-    #     Requires active pin.
+    #     Requires active pin. Discord API limits this to 25 options.
     #     """
     #     options_split = options.split(",")
     #     pin = PollPin(
@@ -124,12 +124,15 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     @commands.hybrid_command(name="allpins")
     @commands.check(check_permitted)
     async def get_all_pins(self, ctx: commands.Context):
+        if not self.bot.pins:
+            await ctx.reply("No active pins!", ephemeral=True)
+            return
         embed = discord.Embed(
             title="All Pins",
             type="rich",
             color=self.bot.config.embed_color or 14517504,
         )
-        for channel_id, pin_obj in self.bot.pins:
+        for channel_id, pin_obj in self.bot.pins.items():
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
             embed.add_field(name=self.bot.get_channel(channel_id).name, value=pin_obj.get_self_data())
         await ctx.reply(embed=embed, ephemeral=True)

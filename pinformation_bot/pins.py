@@ -4,7 +4,6 @@ from typing import Any, Optional
 import discord
 
 
-@dataclass
 class Pin:
     """Base Pin class"""
 
@@ -16,8 +15,7 @@ class Pin:
         self.last_message: Optional[discord.Message.id] = None
 
     def get_self_data(self):
-        data_dict = asdict(self)
-        return ", ".join(f"{key}:{value}" for key, value in data_dict.items())
+        return f"Channel ID: <#{self.channel_id}>, Message speed: {self.speed_msgs}"
 
     def increment_msg_count(self):
         self.msg_count += 1
@@ -26,7 +24,6 @@ class Pin:
         raise NotImplementedError("This method should be overriden in sublass.")
 
 
-@dataclass
 class TextPin(Pin):
     def __init__(self, channel_id: int, text: str):
         super().__init__(channel_id)
@@ -36,7 +33,6 @@ class TextPin(Pin):
         return {"content": self.text}
 
 
-@dataclass
 class EmbedPin(Pin):
     def __init__(
         self,
@@ -71,7 +67,6 @@ class EmbedPin(Pin):
         return {"embed": self.embed}
 
 
-@dataclass
 class PollPin(Pin):
     def __init__(self, channel_id: int, title: str, options: list[str], color: Optional[int]):
         super().__init__(channel_id)
