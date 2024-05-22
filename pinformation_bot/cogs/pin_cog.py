@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
-from ..pins import EmbedPin, PollPin, TextPin
+from ..pins import EmbedPin, TextPin
 
 log = getLogger(__name__)
 
@@ -23,7 +23,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     async def on_message(self, message: discord.Message):
         if message.channel.id in self.bot.pins:
             chann_id = message.channel.id
-            if message.author != self.bot.user:
+            if message.author != self.bot.user and self.bot.pins[chann_id].active:
                 self.bot.pins[chann_id].increment_msg_count()
                 if self.bot.pins[chann_id].msg_count >= self.bot.pins[chann_id].speed_msgs:
                     await self._update_pin_message(message)
@@ -69,32 +69,6 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         pin.last_message = message.id
         # TODO: add some sort of cache
 
-    # @commands.hybrid_command(name="pinpoll") # TODO: figure out button interactions
-    # @commands.check(check_permitted)
-    # async def pin_poll(
-    #     self,
-    #     ctx: commands.Context,
-    #     title: str,
-    #     options: str,
-    #     color: Optional[int],
-    # ):
-    #     """
-    #     Pin a poll to the current channel.
-    #     Options should be comma separated values. Ex: Option1,Option2,Option3
-    #     Requires active pin. Discord API limits this to 25 options.
-    #     """
-    #     options_split = options.split(",")
-    #     pin = PollPin(
-    #         channel_id=ctx.channel.id,
-    #         title=title,
-    #         options=options_split,
-    #         color=color or self.bot.config.embed_color,
-    #     )
-    #     self.bot.pins[ctx.channel.id] = pin
-    #     await ctx.reply("Started embed pin!", ephemeral=True)
-    #     await ctx.channel.send(embed=pin.embed, view=pin.view)
-    #     # TODO: add some sort of cache
-
     @commands.hybrid_command(name="pinstop")
     @commands.check(check_permitted)
     async def pin_stop(self, ctx: commands.Context):
@@ -104,8 +78,24 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         if not self.bot.pins.get(ctx.channel.id):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
-        self.bot.pins.pop(ctx.channel.id)
+        last_bot_msg = await ctx.message.channel.fetch_message(self.bot.pins[ctx.channel.id].last_message)
+        await last_bot_msg.delete()
+        self.bot.pins[ctx.channel.id].active = False
         await ctx.reply("Removed pin!", ephemeral=True)
+
+    @commands.hybrid_command(name="pinrestart")
+    @commands.check(check_permitted)
+    async def pin_restart(self, ctx: commands.Context):
+        """
+        Restart last active pin in this channel.
+        """
+        if not self.bot.pins.get(ctx.channel.id):
+            await ctx.reply("No previous pin in channel!", ephemeral=True)
+            return
+        new_message = await ctx.channel.send(**self.bot.pins[ctx.channel.id]._rebuild_msg())
+        self.bot.pins[ctx.channel.id].last_message = new_message.id
+        self.bot.pins[ctx.channel.id].active = True
+        await ctx.reply("re-activated pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinspeed")
     @commands.check(check_permitted)
