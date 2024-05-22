@@ -37,7 +37,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         pin = TextPin(channel_id=ctx.channel.id, text=text)
         self.bot.pins[ctx.channel.id] = pin
         await ctx.reply("Started text pin!", ephemeral=True)
-        message = await ctx.channel.send(pin.text)
+        message = await ctx.channel.send(pin.text, suppress_embeds=True)
         pin.last_message = message.id
         # TODO: add some sort of cache for pins to persist through crashes/restarts
 

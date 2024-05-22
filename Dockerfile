@@ -14,4 +14,6 @@ RUN /root/.local/bin/poetry install --no-dev
 
 COPY . .
 
+VOLUME ["/app/config"]
+
 ENTRYPOINT ["/root/.local/bin/poetry", "run", "python", "pinformation_bot"]

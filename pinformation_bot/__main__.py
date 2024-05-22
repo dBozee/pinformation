@@ -1,18 +1,16 @@
 from json import loads
 from os import environ
-from pathlib import Path
 from typing import Any
 
 import discord
 from dotenv import load_dotenv
 
-from pinformation_bot.bot_config import BotConfig
+from pinformation_bot.bot_config import JSON_FILE, BotConfig
 from pinformation_bot.pinformation import PinformationBot
 
 INTENTS = discord.Intents.default()
 INTENTS.message_content = True
 INTENTS.members = True
-JSON_FILE = Path(Path(__file__).parent / "config.json")
 
 
 def get_config() -> BotConfig:
