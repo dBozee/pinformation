@@ -23,7 +23,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     async def on_message(self, message: discord.Message):
         if message.channel.id in self.bot.pins:
             chann_id = message.channel.id
-            if message.author != self.bot.user and self.bot.pins[chann_id].active:
+            if not message.author.bot and self.bot.pins[chann_id].active:
                 self.bot.pins[chann_id].increment_msg_count()
                 if self.bot.pins[chann_id].msg_count >= self.bot.pins[chann_id].speed_msgs:
                     await self._update_pin_message(message)
