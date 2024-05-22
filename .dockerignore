@@ -1,0 +1,8 @@
+.venv/
+.git/
+.vscode/
+.gitignore
+.env
+LICENSE
+*.code-workspace
+README.md

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pinformation"
+name = "pinformation-bot"
 version = "0.0.1"
 description = "A simple Discord bot for pinning messages to the bottom of a channel"
 authors = ["dBozee"]

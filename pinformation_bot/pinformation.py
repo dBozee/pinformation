@@ -1,9 +1,10 @@
 import logging
+from asyncio import sleep
 
 import discord
-from .bot_config import BotConfig
 from discord.ext import commands
-from asyncio import sleep
+
+from .bot_config import BotConfig
 from .pins import Pin
 
 log = logging.getLogger(__name__)

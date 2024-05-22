@@ -1,10 +1,10 @@
 from dataclasses import asdict, dataclass
 from json import dump
+from logging import getLogger
 from pathlib import Path
 from typing import Optional
 
 from discord.ext import commands
-from logging import getLogger
 
 log = getLogger(__name__)
 JSON_FILE = Path(Path(__file__).parent / "config.json")

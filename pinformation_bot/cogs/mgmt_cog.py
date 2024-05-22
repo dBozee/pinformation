@@ -4,13 +4,12 @@ from typing import Literal
 
 import discord
 from discord.ext import commands
-from pkg_resources import get_distribution
 
-from ..pinformation import PinformationBot
 from ..bot_config import check_permitted
+from ..pinformation import PinformationBot
 
 log = getLogger(__name__)
-VERSION = get_distribution("pinformation").version
+VERSION = "0.0.1"
 """
 This cog is for managing the bot and adding/removing users/roles to the bot.
 """

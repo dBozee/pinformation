@@ -6,8 +6,8 @@ from typing import Any
 import discord
 from dotenv import load_dotenv
 
-from .bot_config import BotConfig
-from .pinformation import PinformationBot
+from pinformation_bot.bot_config import BotConfig
+from pinformation_bot.pinformation import PinformationBot
 
 INTENTS = discord.Intents.default()
 INTENTS.message_content = True
