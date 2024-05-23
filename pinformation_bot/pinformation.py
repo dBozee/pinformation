@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from .bot_config import BotConfig
 from .pins import Pin
+from .db_funcs import Database
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -26,7 +27,8 @@ class PinformationBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 
-        self.config = config
+        self.config: BotConfig = config
+        self.database: Database = Database()
         self.pins: dict[int, Pin] = {}
 
     async def setup_hook(self):

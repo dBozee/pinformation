@@ -46,9 +46,9 @@ class ManagementCog(commands.Cog, name="Main"):
         """
 
         self.bot.log_action(ctx, "Shut down the bot")
-        # TODO: cache active pins to be reloaded on restart
         await ctx.reply("Shutting down...", ephemeral=True)
         await sleep(1)
+        self.bot.database.db.close()
         await self.bot.close()
         exit()
 

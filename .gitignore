@@ -9,3 +9,4 @@ __pycache__/
 *$py.class
 launch.json
 pinformation.code-workspace
+pinformation_bot/config/pin_cache.db

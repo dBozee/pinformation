@@ -7,9 +7,9 @@ import discord
 class Pin:
     """Base Pin class"""
 
-    def __init__(self, channel_id: int):
+    def __init__(self, channel_id: int, speed_msgs: int):
         self.channel_id = channel_id
-        self.speed_msgs: int = 1
+        self.speed_msgs: int = speed_msgs
         self.msg_count = 0
         self.message_obj: Any = None
         self.last_message: Optional[discord.Message.id] = None
@@ -27,8 +27,8 @@ class Pin:
 
 
 class TextPin(Pin):
-    def __init__(self, channel_id: int, text: str):
-        super().__init__(channel_id)
+    def __init__(self, channel_id: int, text: str, speed_msgs: int):
+        super().__init__(channel_id, speed_msgs)
         self.text = text
 
     def _rebuild_msg(self):
@@ -44,8 +44,9 @@ class EmbedPin(Pin):
         url: Optional[str],
         image: Optional[str],
         color: Optional[int],
+        speed_msgs: int,
     ):
-        super().__init__(channel_id)
+        super().__init__(channel_id, speed_msgs)
         self.title = title
         self.text = text
         self.url = url

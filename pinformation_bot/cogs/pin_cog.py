@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 from discord.ext import commands
@@ -18,6 +18,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         log.info("Pin cog is ready!")
+        await self._restart_active_pins(self.bot.database.get_cached_pins())
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -30,16 +31,20 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
 
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
-    async def pin_text(self, ctx: commands.Context, text: str):
+    async def pin_text(
+        self,
+        ctx: commands.Context,
+        text: str,
+        speed_msgs: Optional[int] = 1,
+    ):
         """
         Pin a text based message to the current channel. Can use emojis.
         """
-        pin = TextPin(channel_id=ctx.channel.id, text=text)
+        pin = TextPin(channel_id=ctx.channel.id, text=text, speed_msgs=speed_msgs)
         self.bot.pins[ctx.channel.id] = pin
-        await ctx.reply("Started text pin!", ephemeral=True)
         message = await ctx.channel.send(pin.text, suppress_embeds=True)
         pin.last_message = message.id
-        # TODO: add some sort of cache for pins to persist through crashes/restarts
+        self.bot.database.add_or_update_pin(pin.__dict__)
 
     @commands.hybrid_command(name="pinembed")
     @commands.check(check_permitted)
@@ -51,6 +56,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         url: Optional[str] = None,
         image: Optional[str] = None,
         color: Optional[int] = None,
+        speed_msgs: Optional[int] = 1,
     ):
         """
         Pin an embed based message to the current channel.
@@ -62,12 +68,12 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             url=url,
             image=image,
             color=color or self.bot.config.embed_color,
+            speed_msgs=speed_msgs,
         )
         self.bot.pins[ctx.channel.id] = pin
-        await ctx.reply("Started embed pin!", ephemeral=True)
         message = await ctx.channel.send(embed=pin.embed)
         pin.last_message = message.id
-        # TODO: add some sort of cache
+        self.bot.database.add_or_update_pin(pin.__dict__)
 
     @commands.hybrid_command(name="pinstop")
     @commands.check(check_permitted)
@@ -82,6 +88,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         await last_bot_msg.delete()
         self.bot.pins[ctx.channel.id].active = False
         await ctx.reply("Removed pin!", ephemeral=True)
+        self.bot.database.remove_pin(ctx.channel.id)
 
     @commands.hybrid_command(name="pinrestart")
     @commands.check(check_permitted)
@@ -109,7 +116,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             return
         self.bot.pins[ctx.channel.id].speed_msgs = speed
         await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} messages", ephemeral=True)
-        # TODO: adjust speed of pin message. Either in message count or time.
+        # FUTURE: time based pins? Combination of message/time whichever is first?
 
     @commands.hybrid_command(name="allpins")
     @commands.check(check_permitted)
@@ -134,6 +141,25 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         new_msg = await message.channel.send(**self.bot.pins[chann_id]._rebuild_msg())
         self.bot.pins[chann_id].msg_count = 0
         self.bot.pins[chann_id].last_message = new_msg.id
+
+    async def _restart_active_pins(self, pin_list: list[Optional[dict[str, Any]]]):
+        for pin_data in pin_list:
+            filtered_dict = {k: v for k, v in pin_data.items() if v}
+
+            chann_id = filtered_dict.get("channel_id")
+            channel = self.bot.get_channel(int(chann_id))
+            last_bot_msg = await channel.fetch_message(filtered_dict.get("last_message"))
+            context = await self.bot.get_context(last_bot_msg)
+
+            # remove elements that are no longer needed
+            [filtered_dict.pop(key) for key in ["active", "channel_id", "last_message"]]
+            if filtered_dict.get("title"):  # check if it's an embed
+
+                await self.pin_embed(context, **filtered_dict)
+            else:
+
+                await self.pin_text(context, **filtered_dict)
+            await last_bot_msg.delete()
 
 
 async def setup(bot: PinformationBot):
