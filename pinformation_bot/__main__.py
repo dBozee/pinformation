@@ -31,4 +31,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     load_dotenv()
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"Unhandled exception raised: {e}")
+        exit(1)  # ensure the script gets restarted by the docker container if running in docker.
