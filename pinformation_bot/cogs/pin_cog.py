@@ -7,6 +7,7 @@ from discord.ext import commands
 from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
 from ..pins import EmbedPin, TextPin
+from . import long_responses
 
 log = getLogger(__name__)
 
@@ -51,8 +52,8 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     async def pin_embed(
         self,
         ctx: commands.Context,
-        title: str,
         text: str,
+        title: Optional[str],
         url: Optional[str] = None,
         image: Optional[str] = None,
         color: Optional[int] = None,
@@ -132,6 +133,20 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         for channel_id, pin_obj in self.bot.pins.items():
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
             embed.add_field(name=f"#{self.bot.get_channel(channel_id).name}", value=pin_obj.get_self_data())
+        await ctx.reply(embed=embed, ephemeral=True)
+
+    @commands.hybrid_command(name="pinhelp")
+    async def pin_help(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="Pinformation command reference",
+            type="rich",
+            color=self.bot.config.embed_color or 14517504,
+        )
+        for pin_field in long_responses.help_pins:
+            embed.add_field(**pin_field, inline=False)
+        for mgmt_field in long_responses.help_management:
+            embed.add_field(**mgmt_field, inline=False)
+
         await ctx.reply(embed=embed, ephemeral=True)
 
     async def _update_pin_message(self, message: discord.Message):
