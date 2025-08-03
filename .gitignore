@@ -1,6 +1,7 @@
 .env
 .venv/
 .vscode/settings.json
+.idea/
 *.log
 build/
 dist/

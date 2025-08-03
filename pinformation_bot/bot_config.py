@@ -34,9 +34,9 @@ class BotConfig:
 
 async def check_permitted(ctx: commands.Context) -> bool:
     """
-    checks if ctx author is allow listed either by their user_id or a role_id.
-    If false, user is given ephemeral message that they don't have permission
-    and logs that user tried to use role otuside their permissions.
+    checks if ctx author is allowlisted either by their user_id or a role_id.
+    If false, the user is given an ephemeral message that they don't have permission
+    and logs that the user tried to use a role outside their permissions.
     """
     if str(ctx.author.id) in ctx.bot.config.permitted_users:
         return True

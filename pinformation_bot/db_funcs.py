@@ -14,6 +14,7 @@ class Database:
         self.cur.execute(
             "CREATE TABLE IF NOT EXISTS pins(\
             channel_id TEXT PRIMARY KEY,\
+            pin_type STRING,\
             speed_msgs INTEGER,\
             last_message TEXT,\
             active INTEGER,\
@@ -31,6 +32,7 @@ class Database:
         """
         values = (
             pin_data["channel_id"],
+            pin_data.get("pin_type", "embed"),
             pin_data.get("speed_msgs"),
             pin_data.get("last_message"),
             int(pin_data.get("active")),  # convert bool to int because sqlite doesn't support booleans
@@ -43,6 +45,7 @@ class Database:
         self.cur.execute(
             "INSERT OR REPLACE INTO pins(\
             channel_id,\
+            pin_type,\
             speed_msgs,\
             last_message,\
             active,\
@@ -51,7 +54,7 @@ class Database:
             url,\
             image,\
             color)\
-            VALUES(?,?,?,?,?,?,?,?,?)",
+            VALUES(?,?,?,?,?,?,?,?,?,?)",
             values,
         )
         self.db.commit()
@@ -60,7 +63,7 @@ class Database:
         self.cur.execute(f"DELETE FROM pins WHERE channel_id = {channel_id}")
         self.db.commit()
 
-    def get_cached_pins(self) -> list[Pin]:
+    def get_cached_pins(self) -> list[dict[str, Any]]:
         self.db.row_factory = sqlite3.Row
         query_res: list[sqlite3.Row] = self.cur.execute("SELECT * FROM pins WHERE active = 1").fetchall()
         results = []
@@ -68,14 +71,15 @@ class Database:
             results.append(
                 {
                     "channel_id": result[0],
-                    "speed_msgs": result[1],
-                    "last_message": result[2],
-                    "active": bool(result[3]),
-                    "text": result[4],
-                    "title": result[5],
-                    "url": result[6],
-                    "image": result[7],
-                    "color": result[8],
+                    "pin_type": result[1],
+                    "speed_msgs": result[2],
+                    "last_message": result[3],
+                    "active": bool(result[4]),
+                    "text": result[5],
+                    "title": result[6],
+                    "url": result[7],
+                    "image": result[8],
+                    "color": result[9],
                 }
             )
 

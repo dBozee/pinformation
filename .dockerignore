@@ -1,6 +1,7 @@
 .venv/
 .git/
 .vscode/
+.idea/
 .gitignore
 .env
 LICENSE

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 import discord
 
@@ -9,6 +9,7 @@ class Pin:
 
     def __init__(self, channel_id: int, speed_msgs: int):
         self.channel_id = channel_id
+        self.pin_type: str = "base"
         self.speed_msgs: int = speed_msgs
         self.msg_count = 0
         self.message_obj: Any = None
@@ -22,16 +23,17 @@ class Pin:
     def increment_msg_count(self):
         self.msg_count += 1
 
-    def _rebuild_msg(self):
+    def rebuild_msg(self):
         raise NotImplementedError("This method should be overriden in sublass.")
 
 
 class TextPin(Pin):
     def __init__(self, channel_id: int, text: str, speed_msgs: int):
         super().__init__(channel_id, speed_msgs)
+        self.pin_type: str = "text"
         self.text = text
 
-    def _rebuild_msg(self):
+    def rebuild_msg(self):
         return {"content": self.text}
 
 
@@ -47,6 +49,7 @@ class EmbedPin(Pin):
         speed_msgs: int,
     ):
         super().__init__(channel_id, speed_msgs)
+        self.pin_type: str = "embed"
         self.title = title
         self.text = text
         self.url = url
@@ -69,7 +72,8 @@ class EmbedPin(Pin):
         return embed
 
     def _get_embed_info(self) -> dict:
-        return self.embed.to_dict()
+        # noinspection PyTypeChecker
+        return self.embed.to_dict() # bad typehint from the library
 
-    def _rebuild_msg(self):
+    def rebuild_msg(self):
         return {"embed": self.embed}
