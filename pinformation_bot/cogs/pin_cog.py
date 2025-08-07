@@ -65,7 +65,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             message = await channel.send(pin.text, suppress_embeds=True)
             pin.last_message = message.id
             self.bot.database.add_or_update_pin(pin.__dict__)
-            if reply:
+            if reply and ctx.interaction is not None:
                 await ctx.reply("Added text pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinembed")
@@ -73,8 +73,9 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     async def pin_embed(
         self,
         ctx: commands.Context,
+        *,
         text: str,
-        title: Optional[str],
+        title: Optional[str] = None,
         url: Optional[str] = None,
         image: Optional[str] = None,
         color: Optional[int] = None,
@@ -99,7 +100,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             message = await channel.send(embed=pin.embed)
             pin.last_message = message.id
             self.bot.database.add_or_update_pin(pin.__dict__)
-            if reply: 
+            if reply and ctx.interaction is not None: 
                 await ctx.reply("Added embed pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinstop")
@@ -116,7 +117,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             last_bot_msg = await ctx.message.channel.fetch_message(self.bot.pins[channel_id].last_message)
             await last_bot_msg.delete()
             self.bot.pins[channel_id].active = False
-            await ctx.reply("Removed pin!", ephemeral=True)
+            await ctx.reply("Removed pin!", ephemeral=ctx.interaction is not None)
             self.bot.database.remove_pin(channel_id)
             self.channel_locks.pop(channel_id, None)
 
@@ -128,13 +129,15 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         """
         channel_id: int = ctx.channel.id
         if not self.bot.pins.get(channel_id):
-            await ctx.reply("No previous pin in channel!", ephemeral=True)
+            if ctx.interaction is not None:
+                await ctx.reply("No previous pin in channel!", ephemeral=True)
             return
         async with await self.get_channel_locks(channel_id):
             new_message = await ctx.channel.send(**self.bot.pins[channel_id].rebuild_msg())
             self.bot.pins[channel_id].last_message = new_message.id
             self.bot.pins[channel_id].active = True
-            await ctx.reply("re-activated pin!", ephemeral=True)
+            if ctx.interaction is not None:
+                await ctx.reply("re-activated pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinspeed")
     @commands.check(check_permitted)
