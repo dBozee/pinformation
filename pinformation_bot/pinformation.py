@@ -13,13 +13,12 @@ log.setLevel(logging.DEBUG)
 discord.utils.setup_logging()
 discord.utils.setup_logging(level=logging.DEBUG, root=False)
 
+INTENTS = discord.Intents.default()
+INTENTS.message_content = True
+INTENTS.members = True
 
 class PinformationBot(commands.Bot):
     def __init__(self, config: BotConfig):
-        INTENTS = discord.Intents.default()
-        INTENTS.message_content = True
-        INTENTS.members = True
-
         super().__init__(
             intents=INTENTS,
             command_prefix=commands.when_mentioned_or(config.prefix),

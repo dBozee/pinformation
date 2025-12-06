@@ -26,12 +26,14 @@ def main() -> None:
     loaded_config: BotConfig = get_config()
 
     bot = PinformationBot(config=loaded_config)
+    print(f"TOKEN = {environ.get('DISCORD_TOKEN')}")
     bot.run(environ.get("DISCORD_TOKEN", ""))
 
 
 if __name__ == "__main__":
     load_dotenv()
     try:
+        print("Starting bot...")
         main()
     except Exception as e:
         print(f"Unhandled exception raised: {e}")

@@ -1,19 +1,26 @@
-FROM python:3.10-slim
+#build stage
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
+COPY . /app
+WORKDIR /app
+ENV UV_LINK_MODE=copy
+
+#install gcc for aiohttp
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        python3-dev \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN uv venv && uv sync
+
+#runtime stage
+FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
-
-ENV PYTHONPATH=${PYTHONPATH}:${PWD} 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -sSL https://install.python-poetry.org | python3 -
-
-RUN /root/.local/bin/poetry config virtualenvs.create false
-
-RUN /root/.local/bin/poetry install --no-dev
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
-
-VOLUME ["/app/config"]
-
-ENTRYPOINT ["/root/.local/bin/poetry", "run", "python", "pinformation_bot"]
+CMD ["python", "-m", "pinformation_bot"]

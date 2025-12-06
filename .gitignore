@@ -11,3 +11,4 @@ __pycache__/
 launch.json
 pinformation.code-workspace
 pinformation_bot/config/pin_cache.db
+config.json

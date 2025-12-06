@@ -1,0 +1,12 @@
+services:
+  pinformation-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: pinformation_bot
+    volumes:
+      - ./config:/app/config
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    restart: unless-stopped

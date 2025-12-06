@@ -1,20 +1,21 @@
-[tool.poetry]
+[project]
 name = "pinformation-bot"
 version = "0.0.1"
 description = "A simple Discord bot for pinning messages to the bottom of a channel"
-authors = ["dBozee"]
+authors = [{ name = "dBozee" }]
+requires-python = ">=3.14"
 license = "MIT"
-readme = "README.md"
-packages = [
-    {include = "pinformation_bot"}
+dependencies = [
+    "discord-py~=2.6.4",
+    "python-dotenv",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-discord-py = "^2.3.2"
-python-dotenv = "^1.0.1"
+[tool.hatch.build.targets.sdist]
+include = ["pinformation_bot"]
 
+[tool.hatch.build.targets.wheel]
+include = ["pinformation_bot"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
