@@ -73,7 +73,7 @@ class EmbedPin(Pin):
 
     def _get_embed_info(self) -> dict:
         # noinspection PyTypeChecker
-        return self.embed.to_dict() # bad typehint from the library
+        return self.embed.to_dict()  # bad typehint from the library
 
     def rebuild_msg(self):
         return {"embed": self.embed}

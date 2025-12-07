@@ -68,19 +68,17 @@ class Database:
         query_res: list[sqlite3.Row] = self.cur.execute("SELECT * FROM pins WHERE active = 1").fetchall()
         results = []
         for result in query_res:
-            results.append(
-                {
-                    "channel_id": result[0],
-                    "pin_type": result[1],
-                    "speed_msgs": result[2],
-                    "last_message": result[3],
-                    "active": bool(result[4]),
-                    "text": result[5],
-                    "title": result[6],
-                    "url": result[7],
-                    "image": result[8],
-                    "color": result[9],
-                }
-            )
+            results.append({
+                "channel_id": result[0],
+                "pin_type": result[1],
+                "speed_msgs": result[2],
+                "last_message": result[3],
+                "active": bool(result[4]),
+                "text": result[5],
+                "title": result[6],
+                "url": result[7],
+                "image": result[8],
+                "color": result[9],
+            })
 
         return results

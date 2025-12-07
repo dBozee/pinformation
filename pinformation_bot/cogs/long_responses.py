@@ -13,8 +13,7 @@ help_pins = [
     {
         "name": "pinspeed",
         "value": (
-            "• Set the speed of the pin in the current channel to a certain number of messages."
-            "Requires an active pin."
+            "• Set the speed of the pin in the current channel to a certain number of messages.Requires an active pin."
         ),
     },
     {"name": "allpins", "value": "• get a list of all active pins in this guild."},

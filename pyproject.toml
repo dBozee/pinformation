@@ -19,3 +19,25 @@ include = ["pinformation_bot"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+ignore-init-module-imports = true
+line-length = 120
+
+[tool.ruff.format]
+preview = true
+quote-style = "preserve"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "DTZ",
+    "E",
+    "F",
+    "I",
+    "PTH",
+    "S",
+    "SIM",
+    "TID251",
+    "UP",
+]

@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import Lock
 from logging import getLogger
 from typing import Any, Optional, Callable
@@ -14,7 +13,7 @@ from . import long_responses
 log = getLogger(__name__)
 
 
-class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloaded on restart
+class PinCog(commands.Cog, name="Pin"):
     def __init__(self, pin_bot: PinformationBot) -> None:
         self.bot: PinformationBot = pin_bot
         self.channel_locks: dict[int, Lock] = {}
@@ -23,7 +22,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         """Get or create a channel lock to prevent race conditions."""
         if channel_id not in self.channel_locks:
             self.channel_locks[channel_id] = Lock()
-        return self.channel_locks.get(channel_id) 
+        return self.channel_locks.get(channel_id)
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -32,14 +31,14 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.content.startswith(self.bot.config.prefix):
             return
         channel_id = message.channel.id
-    
+
         if channel_id in self.bot.pins:
             if (pin_data := self.bot.pins.get(channel_id)) and pin_data.active:
                 pin_data.increment_msg_count()
-    
+
                 if pin_data.msg_count >= pin_data.speed_msgs:
                     async with await self.get_channel_locks(channel_id):
                         if pin_data.msg_count >= pin_data.speed_msgs:
@@ -100,7 +99,7 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
             message = await channel.send(embed=pin.embed)
             pin.last_message = message.id
             self.bot.database.add_or_update_pin(pin.__dict__)
-            if reply and ctx.interaction is not None: 
+            if reply and ctx.interaction is not None:
                 await ctx.reply("Added embed pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinstop")
@@ -168,7 +167,10 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         )
         for channel_id, pin_obj in self.bot.pins.items():
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
-            embed.add_field(name=f"#{self.bot.get_channel(channel_id).name}", value=pin_obj.get_self_data())
+            embed.add_field(
+                name=f"#{self.bot.get_channel(channel_id).name}",
+                value=pin_obj.get_self_data(),
+            )
         await ctx.reply(embed=embed, ephemeral=True)
 
     @commands.hybrid_command(name="pinhelp")
@@ -186,10 +188,10 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         await ctx.reply(embed=embed, ephemeral=True)
 
     async def _update_pin_message(self, message: discord.Message):
-        pin_data = self.bot.pins[message.channel.id]
         try:
-            if pin_data.last_message:
-                try: 
+            pin_data = self.bot.pins[message.channel.id]
+            if pin_data.last_message and pin_data.active:
+                try:
                     last_bot_msg = await message.channel.fetch_message(pin_data.last_message)
                     await last_bot_msg.delete()
                 except discord.NotFound:
@@ -207,9 +209,9 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
     async def _restart_active_pins(self, pin_list: list[Optional[dict[str, Any]]]):
         method_map: dict[str, Callable] = {
             "text": self.pin_text,
-            "embed": self.pin_embed
+            "embed": self.pin_embed,
         }
-        
+
         for pin_data in pin_list:
             filtered_dict = {k: v for k, v in pin_data.items() if v}
 
@@ -218,12 +220,12 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
                 channel = self.bot.get_channel(int(channel_id))
                 last_bot_msg = await channel.fetch_message(filtered_dict.get("last_message"))
                 context = await self.bot.get_context(last_bot_msg)
-    
+
                 # remove elements that are no longer needed
                 [filtered_dict.pop(key) for key in ["active", "channel_id", "last_message"]]
                 pin_method = method_map.get(filtered_dict.get("pin_type", "embed"))
                 filtered_dict.pop("pin_type")
-                
+
                 await pin_method(context, **filtered_dict, reply=False)
                 await last_bot_msg.delete()
             except discord.NotFound:

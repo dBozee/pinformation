@@ -17,6 +17,7 @@ INTENTS = discord.Intents.default()
 INTENTS.message_content = True
 INTENTS.members = True
 
+
 class PinformationBot(commands.Bot):
     def __init__(self, config: BotConfig):
         super().__init__(
