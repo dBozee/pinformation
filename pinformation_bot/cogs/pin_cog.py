@@ -35,16 +35,16 @@ class PinCog(commands.Cog, name="Pin"):  # TODO: cache active pins to be reloade
         if message.author.bot:
             return
         channel_id = message.channel.id
-        if message.channel.id in self.bot.pins:
-            log.debug(f"Checking for lock in {channel_id}")
-            async with await self.get_channel_locks(message.channel.id):
-                pin_data = self.bot.pins[channel_id]
-                if pin_data.active:
-                    pin_data.increment_msg_count()
-                    if pin_data.msg_count >= pin_data.speed_msgs:
-                        await self._update_pin_message(message)
-                        pin_data.msg_count = 0
-                log.debug(f"Acquired lock in {channel_id}")
+    
+        if channel_id in self.bot.pins:
+            if (pin_data := self.bot.pins.get(channel_id)) and pin_data.active:
+                pin_data.increment_msg_count()
+    
+                if pin_data.msg_count >= pin_data.speed_msgs:
+                    async with await self.get_channel_locks(channel_id):
+                        if pin_data.msg_count >= pin_data.speed_msgs:
+                            pin_data.msg_count = 0
+                            await self._update_pin_message(message)
 
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
