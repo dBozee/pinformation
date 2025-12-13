@@ -6,8 +6,9 @@ authors = [{ name = "dBozee" }]
 requires-python = ">=3.14"
 license = "MIT"
 dependencies = [
-    "discord-py~=2.6.4",
+    "discord.py",
     "python-dotenv",
+    "ruff>=0.14.9",
 ]
 
 [tool.hatch.build.targets.sdist]

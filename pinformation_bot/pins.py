@@ -1,35 +1,44 @@
-from datetime import datetime, timezone
-from typing import Any, ClassVar, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 import discord
+
+
+class SpeedTypes(StrEnum):
+    messages = "messages"
+    seconds = "seconds"
 
 
 class Pin:
     """Base Pin class"""
 
-    def __init__(self, channel_id: int, speed_msgs: int):
+    def __init__(self, channel_id: int, speed: int, speed_type: SpeedTypes = SpeedTypes.messages):
         self.channel_id = channel_id
         self.pin_type: str = "base"
-        self.speed_msgs: int = speed_msgs
+        self.speed: int = speed
         self.msg_count = 0
+        self.speed_type = speed_type
         self.message_obj: Any = None
-        self.last_message: Optional[discord.Message.id] = None
-        self.started = datetime.now(timezone.utc).timestamp()
+        self.last_message: int | None = None
+        self.last_message_dt: datetime | None = None
+        self.started = datetime.now(UTC).timestamp()
         self.active: bool = True
 
     def get_self_data(self):
-        return f"Message speed: {self.speed_msgs}\nPinned: <t:{int(self.started)}:f>"
+        typ = "seconds" if self.speed_type == SpeedTypes.seconds else "messages"
+        return f"Message speed: {self.speed} {typ}\nPinned: <t:{int(self.started)}:f>"
 
     def increment_msg_count(self):
         self.msg_count += 1
 
     def rebuild_msg(self):
-        raise NotImplementedError("This method should be overriden in sublass.")
+        raise NotImplementedError("This method should be overridden in subclass.")
 
 
 class TextPin(Pin):
-    def __init__(self, channel_id: int, text: str, speed_msgs: int):
-        super().__init__(channel_id, speed_msgs)
+    def __init__(self, channel_id: int, text: str, speed: int, speed_type: SpeedTypes = SpeedTypes.messages):
+        super().__init__(channel_id, speed, speed_type=speed_type)
         self.pin_type: str = "text"
         self.text = text
 
@@ -43,12 +52,13 @@ class EmbedPin(Pin):
         channel_id: int,
         title: str,
         text: str,
-        url: Optional[str],
-        image: Optional[str],
-        color: Optional[int],
-        speed_msgs: int,
+        url: str | None,
+        image: str | None,
+        color: int | None,
+        speed: int,
+        speed_type: SpeedTypes = SpeedTypes.messages,
     ):
-        super().__init__(channel_id, speed_msgs)
+        super().__init__(channel_id, speed, speed_type)
         self.pin_type: str = "embed"
         self.title = title
         self.text = text

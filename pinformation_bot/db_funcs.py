@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 
 from .bot_config import CONFIG_FOLDER
-from .pins import Pin
 
 
 class Database:
@@ -15,7 +14,8 @@ class Database:
             "CREATE TABLE IF NOT EXISTS pins(\
             channel_id TEXT PRIMARY KEY,\
             pin_type STRING,\
-            speed_msgs INTEGER,\
+            speed INTEGER,\
+            speed_type TEXT, \
             last_message TEXT,\
             active INTEGER,\
             text TEXT,\
@@ -33,7 +33,8 @@ class Database:
         values = (
             pin_data["channel_id"],
             pin_data.get("pin_type", "embed"),
-            pin_data.get("speed_msgs"),
+            pin_data.get("speed"),
+            pin_data.get("speed_type"),
             pin_data.get("last_message"),
             int(pin_data.get("active")),  # convert bool to int because sqlite doesn't support booleans
             pin_data.get("text"),
@@ -46,7 +47,8 @@ class Database:
             "INSERT OR REPLACE INTO pins(\
             channel_id,\
             pin_type,\
-            speed_msgs,\
+            speed,\
+            speed_type,\
             last_message,\
             active,\
             text,\
@@ -54,7 +56,7 @@ class Database:
             url,\
             image,\
             color)\
-            VALUES(?,?,?,?,?,?,?,?,?,?)",
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             values,
         )
         self.db.commit()
@@ -71,14 +73,15 @@ class Database:
             results.append({
                 "channel_id": result[0],
                 "pin_type": result[1],
-                "speed_msgs": result[2],
-                "last_message": result[3],
-                "active": bool(result[4]),
-                "text": result[5],
-                "title": result[6],
-                "url": result[7],
-                "image": result[8],
-                "color": result[9],
+                "speed": result[2],
+                "speed_type": result[3],
+                "last_message": result[4],
+                "active": bool(result[5]),
+                "text": result[6],
+                "title": result[7],
+                "url": result[8],
+                "image": result[9],
+                "color": result[10],
             })
 
         return results

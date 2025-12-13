@@ -1,16 +1,19 @@
-from asyncio import Lock
-from logging import getLogger
-from typing import Any, Optional, Callable
+import logging
+from asyncio import Lock, create_task
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import discord
 from discord.ext import commands
 
 from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
-from ..pins import EmbedPin, TextPin
+from ..pins import EmbedPin, Pin, SpeedTypes, TextPin
 from . import long_responses
 
-log = getLogger(__name__)
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class PinCog(commands.Cog, name="Pin"):
@@ -35,15 +38,42 @@ class PinCog(commands.Cog, name="Pin"):
             return
         channel_id = message.channel.id
 
-        if channel_id in self.bot.pins:
-            if (pin_data := self.bot.pins.get(channel_id)) and pin_data.active:
-                pin_data.increment_msg_count()
+        if channel_id in self.bot.pins and (pin_data := self.bot.pins.get(channel_id)) and pin_data.active:
+            await self._handle_counter(pin_data, message)
 
-                if pin_data.msg_count >= pin_data.speed_msgs:
-                    async with await self.get_channel_locks(channel_id):
-                        if pin_data.msg_count >= pin_data.speed_msgs:
-                            pin_data.msg_count = 0
-                            await self._update_pin_message(message)
+    async def _handle_counter(self, pin: Pin, message: discord.Message) -> None:
+        message_id = message.channel.id
+        lock = await self.get_channel_locks(message_id)
+        if lock.locked():
+            log.debug(f"Lock was already acquired in channel with ID: {message_id}. Skipping.")
+            return
+        async with lock:
+            match pin.speed_type:
+                case SpeedTypes.messages:
+                    pin.increment_msg_count()
+                    if pin.msg_count >= pin.speed:
+                        pin.msg_count = 0
+                        await self._update_pin_message(message)
+                case SpeedTypes.seconds:
+                    last_dt = pin.last_message_dt
+                    channel_name = message.channel.name
+
+                    if not last_dt and pin.last_message:
+                        try:
+                            log.debug(f"Pin in {channel_name} didn't have last_message_dt stored. ")
+                            found_msg = await message.channel.fetch_message(pin.last_message)
+                            last_dt = found_msg.created_at
+                        except discord.NotFound:
+                            log.warning("Failed to get last message from server.")
+                    if not last_dt:
+                        log.warning(f"Time-based pin in {channel_name} missing last_dt")
+                        return
+
+                    delta: datetime = last_dt + timedelta(seconds=pin.speed)
+                    if delta <= datetime.now(tz=UTC):
+                        await self._update_pin_message(message)
+                    else:
+                        log.debug(f"Time not yet elapsed in ${channel_name}. Next update: {delta.isoformat()}")
 
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
@@ -51,18 +81,20 @@ class PinCog(commands.Cog, name="Pin"):
         self,
         ctx: commands.Context,
         text: str,
-        speed_msgs: Optional[int] = 1,
-        reply: Optional[bool] = True,
+        speed: int | None = 1,
+        speed_type: SpeedTypes | None = SpeedTypes.messages,
+        reply: bool | None = True,
     ):
         """
         Pin a text-based message to the current channel. Can use emojis.
         """
         channel = ctx.channel
         async with await self.get_channel_locks(channel.id):
-            pin = TextPin(channel_id=channel.id, text=text, speed_msgs=speed_msgs)
+            pin = TextPin(channel_id=channel.id, text=text, speed=speed, speed_type=speed_type)
             self.bot.pins[channel.id] = pin
             message = await channel.send(pin.text, suppress_embeds=True)
             pin.last_message = message.id
+            pin.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin.__dict__)
             if reply and ctx.interaction is not None:
                 await ctx.reply("Added text pin!", ephemeral=True)
@@ -74,12 +106,13 @@ class PinCog(commands.Cog, name="Pin"):
         ctx: commands.Context,
         *,
         text: str,
-        title: Optional[str] = None,
-        url: Optional[str] = None,
-        image: Optional[str] = None,
-        color: Optional[int] = None,
-        speed_msgs: Optional[int] = 1,
-        reply: Optional[bool] = True,
+        title: str | None = None,
+        url: str | None = None,
+        image: str | None = None,
+        color: int | None = None,
+        speed: int | None = 1,
+        speed_type: SpeedTypes | None = SpeedTypes.messages,
+        reply: bool | None = True,
     ):
         """
         Pin an embed-based message to the current channel.
@@ -93,11 +126,13 @@ class PinCog(commands.Cog, name="Pin"):
                 url=url,
                 image=image,
                 color=color or self.bot.config.embed_color,
-                speed_msgs=speed_msgs,
+                speed=speed,
+                speed_type=speed_type,
             )
             self.bot.pins[channel.id] = pin
             message = await channel.send(embed=pin.embed)
             pin.last_message = message.id
+            pin.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin.__dict__)
             if reply and ctx.interaction is not None:
                 await ctx.reply("Added embed pin!", ephemeral=True)
@@ -113,9 +148,9 @@ class PinCog(commands.Cog, name="Pin"):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
         async with await self.get_channel_locks(channel_id):
-            last_bot_msg = await ctx.message.channel.fetch_message(self.bot.pins[channel_id].last_message)
-            await last_bot_msg.delete()
-            self.bot.pins[channel_id].active = False
+            pin = self.bot.pins[channel_id]
+            create_task(delete_old_message(ctx.message.channel, pin.last_message))
+            pin.active = False
             await ctx.reply("Removed pin!", ephemeral=ctx.interaction is not None)
             self.bot.database.remove_pin(channel_id)
             self.channel_locks.pop(channel_id, None)
@@ -134,13 +169,14 @@ class PinCog(commands.Cog, name="Pin"):
         async with await self.get_channel_locks(channel_id):
             new_message = await ctx.channel.send(**self.bot.pins[channel_id].rebuild_msg())
             self.bot.pins[channel_id].last_message = new_message.id
+            self.bot.pins[channel_id].last_message_dt = datetime.now(UTC)
             self.bot.pins[channel_id].active = True
             if ctx.interaction is not None:
                 await ctx.reply("re-activated pin!", ephemeral=True)
 
     @commands.hybrid_command(name="pinspeed")
     @commands.check(check_permitted)
-    async def pin_speed(self, ctx: commands.Context, speed: int):
+    async def pin_speed(self, ctx: commands.Context, speed: int, speed_type: SpeedTypes | None = None):
         """
         Set the speed for this channel's pin.
         Requires active pin.
@@ -150,8 +186,13 @@ class PinCog(commands.Cog, name="Pin"):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
         async with await self.get_channel_locks(channel_id):
-            self.bot.pins[channel_id].speed_msgs = speed
-            await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} messages", ephemeral=True)
+            pin: Pin = self.bot.pins.get(channel_id)
+            if not pin:
+                return
+            pin.speed = speed
+            if speed_type is not None:
+                pin.speed_type = speed_type
+            await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} {pin.speed_type}", ephemeral=True)
             # FUTURE: time-based pins? Combination of message/time whichever is first?
 
     @commands.hybrid_command(name="allpins")
@@ -191,22 +232,15 @@ class PinCog(commands.Cog, name="Pin"):
         try:
             pin_data = self.bot.pins[message.channel.id]
             if pin_data.last_message and pin_data.active:
-                try:
-                    last_bot_msg = await message.channel.fetch_message(pin_data.last_message)
-                    await last_bot_msg.delete()
-                except discord.NotFound:
-                    log.warning(f"Failed to find & delete last message in channel {message.channel.name}")
-                except discord.HTTPException as e:
-                    log.warning(
-                        f"Failed to delete last message in channel {message.channel.name} with HTTP exception: {e}"
-                    )
+                create_task(delete_old_message(message.channel, pin_data.last_message))
             new_msg = await message.channel.send(**pin_data.rebuild_msg())
             pin_data.last_message = new_msg.id
+            pin_data.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin_data.__dict__)
         except Exception:
             log.exception(f"Failed to update pin message in channel {message.channel.name} with unexpected exception:")
 
-    async def _restart_active_pins(self, pin_list: list[Optional[dict[str, Any]]]):
+    async def _restart_active_pins(self, pin_list: list[dict[str, Any] | None]):
         method_map: dict[str, Callable] = {
             "text": self.pin_text,
             "embed": self.pin_embed,
@@ -230,6 +264,16 @@ class PinCog(commands.Cog, name="Pin"):
                 await last_bot_msg.delete()
             except discord.NotFound:
                 log.exception(f"Failed to restart pin in channel {channel_id} with unexpected exception:")
+
+
+async def delete_old_message(channel: discord.TextChannel, message_id: int):
+    try:
+        old_message = await channel.fetch_message(message_id)
+        await old_message.delete()
+    except discord.NotFound:
+        log.warning(f"Failed to find & delete last message in channel {channel.name}")
+    except discord.HTTPException as e:
+        log.warning(f"Failed to delete last message in channel {channel.name} with HTTP exception: {e}")
 
 
 async def setup(bot: PinformationBot):

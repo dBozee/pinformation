@@ -1,3 +1,4 @@
+import logging
 from json import loads
 from os import environ
 from typing import Any
@@ -12,6 +13,7 @@ INTENTS = discord.Intents.default()
 INTENTS.message_content = True
 INTENTS.members = True
 
+logging.basicConfig(level=logging.DEBUG)
 
 def get_config() -> BotConfig:
     config_file = JSON_FILE.open("r")

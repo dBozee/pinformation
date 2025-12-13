@@ -5,8 +5,8 @@ import discord
 from discord.ext import commands
 
 from .bot_config import BotConfig
-from .pins import Pin
 from .db_funcs import Database
+from .pins import Pin
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -23,7 +23,7 @@ class PinformationBot(commands.Bot):
         super().__init__(
             intents=INTENTS,
             command_prefix=commands.when_mentioned_or(config.prefix),
-            activity=discord.Activity(type=discord.ActivityType.playing, name="keep up with chat."),
+            activity=discord.Activity(type=discord.ActivityType.playing, name="Keeping up with chat."),
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 

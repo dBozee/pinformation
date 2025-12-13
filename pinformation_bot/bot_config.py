@@ -2,12 +2,11 @@ from dataclasses import asdict, dataclass
 from json import dump
 from logging import getLogger
 from pathlib import Path
-from typing import Optional
 
 from discord.ext import commands
 
 log = getLogger(__name__)
-CONFIG_FOLDER = Path(Path(__file__).parent / "config")
+CONFIG_FOLDER = Path(__file__).parent / "config"
 JSON_FILE = Path(CONFIG_FOLDER / "config.json")
 
 
@@ -18,11 +17,11 @@ class BotConfig:
     by the config.json file.
     """
 
-    prefix: Optional[str]
-    permitted_users: Optional[list[str]]
-    permitted_roles: Optional[list[str]]
-    embed_color: Optional[int]
-    cogs: Optional[list[str]]
+    prefix: str | None
+    permitted_users: list[str] | None
+    permitted_roles: list[str] | None
+    embed_color: int | None
+    cogs: list[str] | None
 
     def write_config_to_json(self):
         log.debug(f"Opening config file at: {str(JSON_FILE)}")
