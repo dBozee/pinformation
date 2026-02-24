@@ -72,17 +72,28 @@ class PinformationBot(commands.Bot):
         embed.add_field(name="User", value=ctx.author.mention)
         embed.add_field(name="Channel", value=ctx.channel.mention)
         if pin is not None:
+            max_len = 999
             embed.add_field(name="Pin Type", value=pin.pin_type)
             if isinstance(pin, EmbedPin):
                 embed.add_field(
-                    name="Content", value=f"```json\n{dumps(pin.get_embed_info(), indent=2)}```", inline=False
+                    name="Content",
+                    value=f"```json\n{truncate(dumps(pin.get_embed_info(), indent=2), max_len)}```",
+                    inline=False,
                 )
 
             elif isinstance(pin, TextPin):
-                embed.add_field(name="Content", value=f"```\n{pin.text}```", inline=False)
+                embed.add_field(name="Content", value=f"```\n{truncate(pin.text, max_len)}```", inline=False)
+            if len(pin.text) > max_len:
+                embed.set_footer(text=f"Content truncated to {max_len} characters.")
 
         await self.log_channel.send(embed=embed)
 
     @staticmethod
     def log_action(ctx: commands.Context, message: str) -> None:
         log.info(f"{ctx.author.name}({ctx.author.id}): {message}")
+
+
+def truncate(text: str, max_len: int = 1024) -> str:
+    if len(text) > max_len:
+        return text[: max_len - 3] + "..."
+    return text
