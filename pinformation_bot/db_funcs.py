@@ -62,7 +62,7 @@ class Database:
         self.db.commit()
 
     def remove_pin(self, channel_id):
-        self.cur.execute(f"DELETE FROM pins WHERE channel_id = {channel_id}")
+        self.cur.execute("DELETE FROM pins WHERE channel_id = ?", (channel_id,))
         self.db.commit()
 
     def get_cached_pins(self) -> list[dict[str, Any]]:
