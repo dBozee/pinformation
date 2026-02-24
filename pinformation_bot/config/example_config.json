@@ -1,8 +1,12 @@
 {
-    "prefix": "+",
-    "permitted_users": [],
-    "permitted_roles": [],
-    "embed_color": 14517504,
-    "cogs": ["pinformation_bot.cogs.mgmt_cog", "pinformation_bot.cogs.pin_cog"]
+  "prefix": "+",
+  "permitted_users": [],
+  "permitted_roles": [],
+  "log_channel": "123456789",
+  "embed_color": 14517504,
+  "cogs": [
+    "pinformation_bot.cogs.mgmt_cog",
+    "pinformation_bot.cogs.pin_cog"
+  ]
 }
 // Rename me to config.json and remove this comment

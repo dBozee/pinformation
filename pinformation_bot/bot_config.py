@@ -20,14 +20,14 @@ class BotConfig:
     prefix: str | None
     permitted_users: list[str] | None
     permitted_roles: list[str] | None
+    log_channel: str | None
     embed_color: int | None
     cogs: list[str] | None
 
     def write_config_to_json(self):
         log.debug(f"Opening config file at: {str(JSON_FILE)}")
-        outfile = JSON_FILE.open("w")
-        dump(asdict(self), outfile, indent=4)
-        outfile.close()
+        with JSON_FILE.open(mode="w") as outfile:
+            dump(asdict(self), outfile, indent=4)
         log.debug("Finished writing to config file")
 
 

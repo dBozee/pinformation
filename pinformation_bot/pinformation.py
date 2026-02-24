@@ -1,12 +1,14 @@
 import logging
 from asyncio import sleep
+from datetime import UTC, datetime
+from json import dumps
 
 import discord
 from discord.ext import commands
 
 from .bot_config import BotConfig
 from .db_funcs import Database
-from .pins import Pin
+from .pins import EmbedPin, Pin, TextPin
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -30,11 +32,23 @@ class PinformationBot(commands.Bot):
         self.config: BotConfig = config
         self.database: Database = Database()
         self.pins: dict[int, Pin] = {}
+        self.log_channel: discord.TextChannel | None = None
 
-    async def setup_hook(self):
+    async def set_log_channel(self) -> None:
+        if self.config.log_channel:
+            self.log_channel = await self.fetch_channel(int(self.config.log_channel))
+            if isinstance(self.log_channel, discord.TextChannel):
+                log.info(f"Logging to #{self.log_channel.name}")
+                return
+        log.warning(f"Text channel with ID {self.config.log_channel} not found. Logging to console only.")
+        self.log_channel = None
+
+    async def setup_hook(self) -> None:
         # add cogs
         for cog in self.config.cogs:
             await self.load_extension(cog)
+
+        await self.set_log_channel()
 
         # sync all commands
         synced = await self.tree.sync()
@@ -50,6 +64,25 @@ class PinformationBot(commands.Bot):
         await sleep(1)
         return list(self.extensions)
 
+    async def log_pin_change(self, ctx: commands.Context, command_type: str, pin: Pin | None) -> None:
+        if self.log_channel is None:
+            log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")
+            return
+        embed = discord.Embed(title=f"{command_type}", timestamp=datetime.now(tz=UTC))
+        embed.add_field(name="User", value=ctx.author.mention)
+        embed.add_field(name="Channel", value=ctx.channel.mention)
+        if pin is not None:
+            embed.add_field(name="Pin Type", value=pin.pin_type)
+            if isinstance(pin, EmbedPin):
+                embed.add_field(
+                    name="Content", value=f"```json\n{dumps(pin.get_embed_info(), indent=2)}```", inline=False
+                )
+
+            elif isinstance(pin, TextPin):
+                embed.add_field(name="Content", value=f"```\n{pin.text}```", inline=False)
+
+        await self.log_channel.send(embed=embed)
+
     @staticmethod
-    def log_action(ctx: commands.Context, message: str):
+    def log_action(ctx: commands.Context, message: str) -> None:
         log.info(f"{ctx.author.name}({ctx.author.id}): {message}")

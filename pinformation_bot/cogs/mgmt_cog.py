@@ -113,6 +113,21 @@ class ManagementCog(commands.Cog, name="Main"):
             await ctx.reply("Failed to reload extensions", ephemeral=True)
         self.bot.log_action(ctx, "Reloaded the bot")
 
+    @commands.hybrid_command(name="setlogchannel")
+    @commands.check(check_permitted)
+    async def set_log_channel(self, ctx: commands.Context, channel_id: str):
+        """
+        Set the log channel for the bot.
+        """
+        if not (channel := await ctx.guild.fetch_channel(int(channel_id))):
+            await ctx.reply(f"No channel with {channel_id} found.", ephemeral=True)
+            return
+        self.bot.config.log_channel = channel_id
+        self.bot.config.write_config_to_json()
+        await self.bot.set_log_channel()
+        self.bot.log_action(ctx, f"Set log channel to {channel.name}({channel_id})")
+        await ctx.reply(f"Set log channel to {channel.name}({channel_id})", ephemeral=True)
+
 
 async def setup(bot: PinformationBot):
     await bot.add_cog(ManagementCog(bot))
