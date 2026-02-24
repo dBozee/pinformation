@@ -80,6 +80,7 @@ class PinCog(commands.Cog, name="Pin"):
     async def pin_text(
         self,
         ctx: commands.Context,
+        *,
         text: str,
         speed: int | None = 1,
         speed_type: SpeedTypes | None = SpeedTypes.messages,
@@ -98,6 +99,8 @@ class PinCog(commands.Cog, name="Pin"):
             self.bot.database.add_or_update_pin(pin.__dict__)
             if reply and ctx.interaction is not None:
                 await ctx.reply("Added text pin!", ephemeral=True)
+        if not ctx.author.bot:
+            await self.bot.log_pin_change(ctx, "Added Text Pin", pin)
 
     @commands.hybrid_command(name="pinembed")
     @commands.check(check_permitted)
@@ -136,6 +139,8 @@ class PinCog(commands.Cog, name="Pin"):
             self.bot.database.add_or_update_pin(pin.__dict__)
             if reply and ctx.interaction is not None:
                 await ctx.reply("Added embed pin!", ephemeral=True)
+        if not ctx.author.bot:
+            await self.bot.log_pin_change(ctx, "Added Embed Pin", pin)
 
     @commands.hybrid_command(name="pinstop")
     @commands.check(check_permitted)
@@ -154,6 +159,7 @@ class PinCog(commands.Cog, name="Pin"):
             await ctx.reply("Removed pin!", ephemeral=ctx.interaction is not None)
             self.bot.database.remove_pin(channel_id)
             self.channel_locks.pop(channel_id, None)
+            await self.bot.log_pin_change(ctx, "Removed Pin", pin)
 
     @commands.hybrid_command(name="pinrestart")
     @commands.check(check_permitted)
@@ -173,6 +179,24 @@ class PinCog(commands.Cog, name="Pin"):
             self.bot.pins[channel_id].active = True
             if ctx.interaction is not None:
                 await ctx.reply("re-activated pin!", ephemeral=True)
+            await self.bot.log_pin_change(ctx, "Restarted Pin", self.bot.pins[channel_id])
+
+    @commands.hybrid_command(name="getpintext")
+    @commands.check(check_permitted)
+    async def get_pin_text(self, ctx: commands.Context):
+        """
+        Get the text content of this channel's pin.
+        Requires active pin.
+        """
+        channel_id: int = ctx.channel.id
+        if not (pin := self.bot.pins.get(channel_id)):
+            await ctx.reply("No pin in channel!", ephemeral=True)
+            return
+        async with await self.get_channel_locks(channel_id):
+            if isinstance(pin, (TextPin, EmbedPin)):
+                await ctx.reply(f"Pin text:\n```json\n{pin.text}```", ephemeral=True)
+            else:
+                await ctx.reply("Unknown pin type!", ephemeral=True)
 
     @commands.hybrid_command(name="pinspeed")
     @commands.check(check_permitted)
@@ -193,7 +217,7 @@ class PinCog(commands.Cog, name="Pin"):
             if speed_type is not None:
                 pin.speed_type = speed_type
             await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} {pin.speed_type}", ephemeral=True)
-            # FUTURE: time-based pins? Combination of message/time whichever is first?
+            await self.bot.log_pin_change(ctx, f"Changed speed to {speed} {pin.speed_type}", pin)
 
     @commands.hybrid_command(name="allpins")
     @commands.check(check_permitted)
@@ -253,6 +277,10 @@ class PinCog(commands.Cog, name="Pin"):
             try:
                 channel = self.bot.get_channel(int(channel_id))
                 last_bot_msg = await channel.fetch_message(filtered_dict.get("last_message"))
+                log.info(
+                    f"Last Message found for channel {channel.name} with ID {last_bot_msg.id}. "
+                    "Attempting to restart pin..."
+                )
                 context = await self.bot.get_context(last_bot_msg)
 
                 # remove elements that are no longer needed
@@ -263,7 +291,7 @@ class PinCog(commands.Cog, name="Pin"):
                 await pin_method(context, **filtered_dict, reply=False)
                 await last_bot_msg.delete()
             except discord.NotFound:
-                log.exception(f"Failed to restart pin in channel {channel_id} with unexpected exception:")
+                log.exception(f"Failed to restart pin in channel {channel_id} with unexpected exception:\n")
 
 
 async def delete_old_message(channel: discord.TextChannel, message_id: int):
