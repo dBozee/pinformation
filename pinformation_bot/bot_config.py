@@ -23,6 +23,7 @@ class BotConfig:
     log_channel: str | None
     embed_color: int | None
     cogs: list[str] | None
+    debug: bool | None = False
 
     def write_config_to_json(self):
         log.debug(f"Opening config file at: {str(JSON_FILE)}")

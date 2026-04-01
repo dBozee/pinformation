@@ -38,20 +38,6 @@ class ManagementCog(commands.Cog, name="Main"):
         embed.add_field(name="version", value=VERSION)
         await ctx.reply(embed=embed, mention_author=False, ephemeral=True)
 
-    @commands.hybrid_command(name="shutdown")
-    @commands.check(check_permitted)
-    async def shutdown(self, ctx: commands.Context):
-        """
-        Shut down the bot.
-        """
-
-        self.bot.log_action(ctx, "Shut down the bot")
-        await ctx.reply("Shutting down...", ephemeral=True)
-        await sleep(1)
-        self.bot.database.db.close()
-        await self.bot.close()
-        exit()
-
     @commands.hybrid_command(name="manageuser")
     @commands.check(check_permitted)
     async def manage_user(self, ctx: commands.Context, user_id: str, action: Literal["add", "remove"]):
@@ -102,16 +88,6 @@ class ManagementCog(commands.Cog, name="Main"):
             self.bot.log_action(ctx, f"Removed {role.name}({role_id}) from role permissions")
             await ctx.reply(f"Romved {role.name}({role_id}) from role permissions", ephemeral=True)
         self.bot.config.write_config_to_json()
-
-    @commands.hybrid_command(name="reload")
-    @commands.check(check_permitted)
-    async def reload(self, ctx: commands.Context):
-        reloaded = await self.bot.reload_extensions()
-        if reloaded:
-            await ctx.reply(f"Sucessfully reloaded {', '.join(reloaded)}", ephemeral=True)
-        else:
-            await ctx.reply("Failed to reload extensions", ephemeral=True)
-        self.bot.log_action(ctx, "Reloaded the bot")
 
     @commands.hybrid_command(name="setlogchannel")
     @commands.check(check_permitted)

@@ -47,6 +47,9 @@ class PinformationBot(commands.Bot):
         # add cogs
         for cog in self.config.cogs:
             await self.load_extension(cog)
+        if self.config.debug:
+            log.debug("----- DEBUB MODE ENABLED -----")
+            await self.load_extension("pinformation_bot.cogs.debug_cog")
 
         await self.set_log_channel()
 
