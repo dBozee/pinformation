@@ -17,30 +17,35 @@ class UpdateCog(commands.Cog):
     @commands.hybrid_command(name="updatetext")
     @commands.check(check_permitted)
     async def update_pin(self, ctx: commands.Context, *, text: str):
+        """Update this channel's existing pin's text/description"""
         await self._update_pin_attribute(ctx, "text", text, require_embed=False)
         await self.bot.log_pin_change(ctx, f"Updated pin text in {ctx.channel.mention} to: {text}")
 
     @commands.hybrid_command(name="updatetitle")
     @commands.check(check_permitted)
     async def update_title(self, ctx: commands.Context, title: str):
+        """Update this channel's existing pin's title. (embed only)"""
         await self._update_pin_attribute(ctx, "title", title)
         await self.bot.log_pin_change(ctx, f"Updated pin title in {ctx.channel.mention} to: {title}")
 
     @commands.hybrid_command(name="updateurl")
     @commands.check(check_permitted)
     async def update_url(self, ctx: commands.Context, url: str):
+        """Update this channel's existing pin's url. (embed only)"""
         await self._update_pin_attribute(ctx, "url", url)
         await self.bot.log_pin_change(ctx, f"Updated pin url in {ctx.channel.mention} to: {url}")
 
     @commands.hybrid_command(name="updateimage")
     @commands.check(check_permitted)
     async def update_img(self, ctx: commands.Context, url: str):
+        """Update this channel's existing pin's image url. (embed only)"""
         await self._update_pin_attribute(ctx, "image", url)
         await self.bot.log_pin_change(ctx, f"Updated pin image url in {ctx.channel.mention} to: {url}")
 
     @commands.hybrid_command(name="updatecolor")
     @commands.check(check_permitted)
     async def update_color(self, ctx: commands.Context, color: int):
+        """Update this channel's existing pin's color. (embed only)"""
         await self._update_pin_attribute(ctx, "color", color)
         await self.bot.log_pin_change(ctx, f"Updated pin color in {ctx.channel.mention} to: {color}")
 

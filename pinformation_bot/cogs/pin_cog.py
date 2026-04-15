@@ -151,6 +151,9 @@ class PinCog(commands.Cog, name="Pin"):
     @commands.hybrid_command(name="allpins")
     @commands.check(check_permitted)
     async def get_all_pins(self, ctx: commands.Context):
+        """
+        Get a listing of all active pins in all channels
+        """
         if not self.bot.pins:
             await ctx.reply("No active pins!", ephemeral=True)
             return
@@ -162,8 +165,9 @@ class PinCog(commands.Cog, name="Pin"):
         for channel_id, pin_obj in self.bot.pins.items():
             # FUTURE: embed max field is 25. What if there are more than 25 pins?
             embed.add_field(
-                name=f"#{self.bot.get_channel(channel_id).name}",
+                name=f"{self.bot.get_channel(channel_id).mention}",
                 value=pin_obj.get_self_data(),
+                inline=False,
             )
         await ctx.reply(embed=embed, ephemeral=True)
 

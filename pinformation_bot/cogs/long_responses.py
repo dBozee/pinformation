@@ -1,5 +1,5 @@
 help_pins = [
-    {"name": "Pintext", "value": "• Pin plain text to a channel. Supports emojis and hyperlinks."},
+    {"name": "pintext", "value": "• Pin plain text to a channel. Supports emojis and hyperlinks."},
     {
         "name": "pinembed",
         "value": (
@@ -18,6 +18,7 @@ help_pins = [
     },
     {"name": "allpins", "value": "• get a list of all active pins in this guild."},
     {"name": "getpintext", "value": "• get the text of the last active pin in the current channel."},
+    {"name": "update<item>", "value": "• update the <item> field. text|title|url|image|color"},
 ]
 help_management = [
     {"name": "botinfo", "value": "• Get information about the bot."},
