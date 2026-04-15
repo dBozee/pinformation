@@ -14,6 +14,7 @@ INTENTS.message_content = True
 INTENTS.members = True
 
 logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 def get_config() -> BotConfig:
     config_file = JSON_FILE.open("r")
@@ -28,15 +29,14 @@ def main() -> None:
     loaded_config: BotConfig = get_config()
 
     bot = PinformationBot(config=loaded_config)
-    print(f"TOKEN = {environ.get('DISCORD_TOKEN')}")
     bot.run(environ.get("DISCORD_TOKEN", ""))
 
 
 if __name__ == "__main__":
     load_dotenv()
     try:
-        print("Starting bot...")
+        log.info("Starting bot...")
         main()
     except Exception as e:
-        print(f"Unhandled exception raised: {e}")
+        log.info(f"Unhandled exception raised: {e}")
         exit(1)  # ensure the script gets restarted by the docker container if running in docker.

@@ -65,9 +65,9 @@ class EmbedPin(Pin):
         self.url = url
         self.image = image
         self.color = color
-        self.embed: discord.Embed = self._create_embed()
+        self.embed: discord.Embed = self.create_embed()
 
-    def _create_embed(self) -> discord.Embed:
+    def create_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title=self.title,
             type="rich",

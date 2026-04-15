@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class ChannelLock:
-    def __init__(self, cog: "PinCog", channel_id: int):
+    def __init__(self, cog: PinCog, channel_id: int):
         self.cog = cog
         self.channel_id = channel_id
         self.lock: Lock | None = None
@@ -101,7 +101,7 @@ class PinCog(commands.Cog, name="Pin"):
         text: str,
         speed: int = 1,
         speed_type: SpeedTypes = SpeedTypes.messages,
-        reply: bool | None = True,
+        reply: bool = True,
     ):
         """
         Pin a text-based message to the current channel. Can use emojis.
@@ -116,8 +116,7 @@ class PinCog(commands.Cog, name="Pin"):
             pin.last_message = message.id
             pin.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin.__dict__)
-            if reply and ctx.interaction is not None:
-                await ctx.reply("Added text pin!", ephemeral=True)
+            await self._handle_reply(ctx, "Added text pin!", reply=reply)
         if not ctx.author.bot:
             await self.bot.log_pin_change(ctx, "Added Text Pin", pin)
 
@@ -134,7 +133,7 @@ class PinCog(commands.Cog, name="Pin"):
         color: int | None = None,
         speed: int = 1,
         speed_type: SpeedTypes = SpeedTypes.messages,
-        reply: bool | None = True
+        reply: bool = True,
     ):
         """
         Pin an embed-based message to the current channel.
@@ -158,10 +157,28 @@ class PinCog(commands.Cog, name="Pin"):
             pin.last_message = message.id
             pin.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin.__dict__)
-            if reply and ctx.interaction is not None:
-                await ctx.reply("Added embed pin!", ephemeral=True)
+            await self._handle_reply(ctx, "Added embed pin!", reply=reply)
         if not ctx.author.bot:
             await self.bot.log_pin_change(ctx, "Added Embed Pin", pin)
+
+    @commands.hybrid_command(name="updatebody")
+    async def update_pin(self, ctx: commands.Context, *, text: str):
+        channel = ctx.channel
+        async with self.get_channel_locks(channel.id):
+            if not (pin := self.bot.pins.get(channel.id)):
+                await ctx.reply("No active pin in channel!", ephemeral=True)
+                return
+            create_task(delete_old_message(ctx.message.channel, pin.last_message))
+            pin.text = text
+            if isinstance(pin, EmbedPin):
+                pin.embed = pin.create_embed()
+                message = await channel.send(embed=pin.embed)
+            else:
+                message = await channel.send(pin.text, suppress_embeds=True)
+            pin.last_message = message.id
+            pin.last_message_dt = datetime.now(UTC)
+            self.bot.database.add_or_update_pin(pin.__dict__)
+            await self._handle_reply(ctx, "Updated pin text!")
 
     @commands.hybrid_command(name="pinstop")
     @commands.check(check_permitted)
@@ -177,6 +194,7 @@ class PinCog(commands.Cog, name="Pin"):
             pin = self.bot.pins[channel_id]
             create_task(delete_old_message(ctx.message.channel, pin.last_message))
             pin.active = False
+            pin.last_message = None
             await ctx.reply("Removed pin!", ephemeral=ctx.interaction is not None)
             self.bot.database.remove_pin(channel_id)
             self.channel_locks.pop(channel_id, None)
@@ -231,8 +249,7 @@ class PinCog(commands.Cog, name="Pin"):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
         async with self.get_channel_locks(channel_id):
-            pin: Pin = self.bot.pins.get(channel_id)
-            if not pin:
+            if not (pin := self.bot.pins.get(channel_id)):
                 return
             pin.speed = speed
             if speed_type is not None:
@@ -292,14 +309,18 @@ class PinCog(commands.Cog, name="Pin"):
         }
 
         for pin_data in pin_list:
+            if not pin_data:
+                continue
             filtered_dict = {k: v for k, v in pin_data.items() if v}
 
-            channel_id = filtered_dict.get("channel_id")
+            channel_id: int = filtered_dict.get("channel_id", 0)
             try:
+                if not (last_msg := filtered_dict.get("last_message")):
+                    continue
                 channel = self.bot.get_channel(int(channel_id))
-                last_bot_msg = await channel.fetch_message(filtered_dict.get("last_message"))
+                last_bot_msg = await channel.fetch_message(last_msg)  # noqa
                 log.info(
-                    f"Last Message found for channel {channel.name} with ID {last_bot_msg.id}. "
+                    f"Last Message found for channel {channel.name} with ID {last_bot_msg.id}. "  # noqa
                     "Attempting to restart pin..."
                 )
                 context = await self.bot.get_context(last_bot_msg)
@@ -314,13 +335,22 @@ class PinCog(commands.Cog, name="Pin"):
             except discord.NotFound:
                 log.exception(f"Failed to restart pin in channel {channel_id} with unexpected exception:\n")
 
+    @staticmethod
+    async def _handle_reply(ctx: commands.Context, msg: str, success: bool = True, reply: bool = True):
+        if ctx.author.bot:
+            return
+        if ctx.interaction is None or not reply:
+            react = "✅" if success else "❌"
+            await ctx.message.add_reaction(react)
+            return
+        await ctx.reply(msg, ephemeral=reply)
+
 
 async def delete_old_message(channel: discord.TextChannel, message_id: int | None):
     try:
         if not message_id:
             return
-        old_message = await channel.fetch_message(message_id)
-        await old_message.delete()
+        await channel.delete_messages([message_id])  # noqa
     except discord.NotFound:
         log.warning(f"Failed to find & delete last message in channel {channel.name}")
     except discord.HTTPException as e:
