@@ -16,8 +16,8 @@ discord.utils.setup_logging()
 discord.utils.setup_logging(level=logging.DEBUG, root=False)
 
 INTENTS = discord.Intents.default()
-INTENTS.message_content = True
-INTENTS.members = True
+INTENTS.message_content = True  # noqa
+INTENTS.members = True  # noqa
 
 
 class PinformationBot(commands.Bot):
@@ -36,7 +36,7 @@ class PinformationBot(commands.Bot):
 
     async def set_log_channel(self) -> None:
         if self.config.log_channel:
-            self.log_channel = await self.fetch_channel(int(self.config.log_channel))
+            self.log_channel = await self.fetch_channel(int(self.config.log_channel))  # noqa
             if isinstance(self.log_channel, discord.TextChannel):
                 log.info(f"Logging to #{self.log_channel.name}")
                 return

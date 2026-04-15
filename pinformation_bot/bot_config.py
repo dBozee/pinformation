@@ -17,13 +17,13 @@ class BotConfig:
     by the config.json file.
     """
 
-    prefix: str | None
-    permitted_users: list[str] | None
-    permitted_roles: list[str] | None
-    log_channel: str | None
-    embed_color: int | None
-    cogs: list[str] | None
-    debug: bool | None = False
+    prefix: str
+    permitted_users: list[str]
+    permitted_roles: list[str]
+    log_channel: str
+    embed_color: int
+    cogs: list[str]
+    debug: bool
 
     def write_config_to_json(self):
         log.debug(f"Opening config file at: {str(JSON_FILE)}")

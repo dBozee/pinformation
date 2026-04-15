@@ -7,13 +7,30 @@ from typing import Any
 import discord
 from discord.ext import commands
 
+from . import long_responses
 from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
 from ..pins import EmbedPin, Pin, SpeedTypes, TextPin
-from . import long_responses
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
+
+
+class ChannelLock:
+    def __init__(self, cog: "PinCog", channel_id: int):
+        self.cog = cog
+        self.channel_id = channel_id
+        self.lock: Lock | None = None
+
+    async def __aenter__(self):
+        if self.channel_id not in self.cog.channel_locks:
+            self.cog.channel_locks[self.channel_id] = Lock()
+        self.lock = self.cog.channel_locks[self.channel_id]
+        await self.lock.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.lock:
+            await self.lock.__aexit__(exc_type, exc_val, exc_tb)
 
 
 class PinCog(commands.Cog, name="Pin"):
@@ -21,11 +38,9 @@ class PinCog(commands.Cog, name="Pin"):
         self.bot: PinformationBot = pin_bot
         self.channel_locks: dict[int, Lock] = {}
 
-    async def get_channel_locks(self, channel_id: int):
+    def get_channel_locks(self, channel_id: int) -> ChannelLock:
         """Get or create a channel lock to prevent race conditions."""
-        if channel_id not in self.channel_locks:
-            self.channel_locks[channel_id] = Lock()
-        return self.channel_locks.get(channel_id)
+        return ChannelLock(self, channel_id)
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -43,7 +58,9 @@ class PinCog(commands.Cog, name="Pin"):
 
     async def _handle_counter(self, pin: Pin, message: discord.Message) -> None:
         message_id = message.channel.id
-        lock = await self.get_channel_locks(message_id)
+        lock = self.channel_locks.get(message_id)
+        if lock is None:
+            lock = self.channel_locks[message_id] = Lock()
         if lock.locked():
             log.debug(f"Lock was already acquired in channel with ID: {message_id}. Skipping.")
             return
@@ -78,19 +95,19 @@ class PinCog(commands.Cog, name="Pin"):
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
     async def pin_text(
-        self,
-        ctx: commands.Context,
-        *,
-        text: str,
-        speed: int | None = 1,
-        speed_type: SpeedTypes | None = SpeedTypes.messages,
-        reply: bool | None = True,
+            self,
+            ctx: commands.Context,
+            *,
+            text: str,
+            speed: int | None = 1,
+            speed_type: SpeedTypes | None = SpeedTypes.messages,
+            reply: bool | None = True,
     ):
         """
         Pin a text-based message to the current channel. Can use emojis.
         """
         channel = ctx.channel
-        async with await self.get_channel_locks(channel.id):
+        async with self.get_channel_locks(channel.id):
             pin = TextPin(channel_id=channel.id, text=text, speed=speed, speed_type=speed_type)
             self.bot.pins[channel.id] = pin
             message = await channel.send(pin.text, suppress_embeds=True)
@@ -105,23 +122,23 @@ class PinCog(commands.Cog, name="Pin"):
     @commands.hybrid_command(name="pinembed")
     @commands.check(check_permitted)
     async def pin_embed(
-        self,
-        ctx: commands.Context,
-        *,
-        text: str,
-        title: str | None = None,
-        url: str | None = None,
-        image: str | None = None,
-        color: int | None = None,
-        speed: int | None = 1,
-        speed_type: SpeedTypes | None = SpeedTypes.messages,
-        reply: bool | None = True,
+            self,
+            ctx: commands.Context,
+            *,
+            text: str,
+            title: str | None = None,
+            url: str | None = None,
+            image: str | None = None,
+            color: int | None = None,
+            speed: int = 1,
+            speed_type: SpeedTypes = SpeedTypes.messages,
+            reply: bool | None = True,
     ):
         """
         Pin an embed-based message to the current channel.
         """
         channel = ctx.channel
-        async with await self.get_channel_locks(channel.id):
+        async with self.get_channel_locks(channel.id):
             pin = EmbedPin(
                 channel_id=channel.id,
                 title=title,
@@ -152,7 +169,7 @@ class PinCog(commands.Cog, name="Pin"):
         if not self.bot.pins.get(channel_id):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
-        async with await self.get_channel_locks(channel_id):
+        async with self.get_channel_locks(channel_id):
             pin = self.bot.pins[channel_id]
             create_task(delete_old_message(ctx.message.channel, pin.last_message))
             pin.active = False
@@ -172,7 +189,7 @@ class PinCog(commands.Cog, name="Pin"):
             if ctx.interaction is not None:
                 await ctx.reply("No previous pin in channel!", ephemeral=True)
             return
-        async with await self.get_channel_locks(channel_id):
+        async with self.get_channel_locks(channel_id):
             new_message = await ctx.channel.send(**self.bot.pins[channel_id].rebuild_msg())
             self.bot.pins[channel_id].last_message = new_message.id
             self.bot.pins[channel_id].last_message_dt = datetime.now(UTC)
@@ -192,7 +209,7 @@ class PinCog(commands.Cog, name="Pin"):
         if not (pin := self.bot.pins.get(channel_id)):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
-        async with await self.get_channel_locks(channel_id):
+        async with self.get_channel_locks(channel_id):
             if isinstance(pin, (TextPin, EmbedPin)):
                 await ctx.reply(f"Pin text:\n```json\n{pin.text}```", ephemeral=True)
             else:
@@ -209,7 +226,7 @@ class PinCog(commands.Cog, name="Pin"):
         if not self.bot.pins.get(channel_id):
             await ctx.reply("No pin in channel!", ephemeral=True)
             return
-        async with await self.get_channel_locks(channel_id):
+        async with self.get_channel_locks(channel_id):
             pin: Pin = self.bot.pins.get(channel_id)
             if not pin:
                 return
