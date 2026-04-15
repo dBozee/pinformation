@@ -29,6 +29,7 @@ async def delete_old_message(channel: discord.TextChannel, message_id: int | Non
     except discord.HTTPException as e:
         log.warning(f"Failed to delete last message in channel {channel.name} with HTTP exception: {e}")
 
+
 async def get_pin(ctx: commands.Context, bot: PinformationBot, channel_id: int) -> Pin | None:
     if pin := bot.pins.get(channel_id):
         return pin

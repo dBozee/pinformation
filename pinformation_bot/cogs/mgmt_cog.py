@@ -1,12 +1,11 @@
-from asyncio import sleep
 from logging import getLogger
 from typing import Literal
 
 import discord
 from discord.ext import commands
 
-from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
+from ..utils.utils import check_permitted
 
 log = getLogger(__name__)
 VERSION = "0.0.1"

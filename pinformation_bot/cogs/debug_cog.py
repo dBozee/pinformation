@@ -2,8 +2,9 @@ from asyncio import sleep
 
 from discord.ext import commands
 
-from pinformation_bot.bot_config import check_permitted
 from pinformation_bot.pinformation import PinformationBot
+
+from ..utils.utils import check_permitted
 
 
 class DebugCog(commands.Cog):

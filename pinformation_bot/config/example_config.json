@@ -6,7 +6,8 @@
   "embed_color": 14517504,
   "cogs": [
     "pinformation_bot.cogs.mgmt_cog",
-    "pinformation_bot.cogs.pin_cog"
+    "pinformation_bot.cogs.pin_cog",
+    "pinformation_bot.cogs.update_cog"
   ],
   "debug": false
 }

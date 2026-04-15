@@ -67,7 +67,7 @@ class PinformationBot(commands.Bot):
         await sleep(1)
         return list(self.extensions)
 
-    async def log_pin_change(self, ctx: commands.Context, command_type: str, pin: Pin | None) -> None:
+    async def log_pin_change(self, ctx: commands.Context, command_type: str, pin: Pin | None = None) -> None:
         if self.log_channel is None:
             log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")
             return
