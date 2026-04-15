@@ -50,7 +50,7 @@ class EmbedPin(Pin):
     def __init__(
         self,
         channel_id: int,
-        title: str,
+        title: str | None,
         text: str,
         url: str | None,
         image: str | None,

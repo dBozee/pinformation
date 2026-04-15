@@ -7,10 +7,10 @@ from typing import Any
 import discord
 from discord.ext import commands
 
-from . import long_responses
 from ..bot_config import check_permitted
 from ..pinformation import PinformationBot
 from ..pins import EmbedPin, Pin, SpeedTypes, TextPin
+from . import long_responses
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -95,19 +95,21 @@ class PinCog(commands.Cog, name="Pin"):
     @commands.hybrid_command(name="pintext")
     @commands.check(check_permitted)
     async def pin_text(
-            self,
-            ctx: commands.Context,
-            *,
-            text: str,
-            speed: int | None = 1,
-            speed_type: SpeedTypes | None = SpeedTypes.messages,
-            reply: bool | None = True,
+        self,
+        ctx: commands.Context,
+        *,
+        text: str,
+        speed: int = 1,
+        speed_type: SpeedTypes = SpeedTypes.messages,
+        reply: bool | None = True,
     ):
         """
         Pin a text-based message to the current channel. Can use emojis.
         """
         channel = ctx.channel
         async with self.get_channel_locks(channel.id):
+            if existing_pin := self.bot.pins.get(channel.id):
+                create_task(delete_old_message(ctx.message.channel, existing_pin.last_message))
             pin = TextPin(channel_id=channel.id, text=text, speed=speed, speed_type=speed_type)
             self.bot.pins[channel.id] = pin
             message = await channel.send(pin.text, suppress_embeds=True)
@@ -122,23 +124,25 @@ class PinCog(commands.Cog, name="Pin"):
     @commands.hybrid_command(name="pinembed")
     @commands.check(check_permitted)
     async def pin_embed(
-            self,
-            ctx: commands.Context,
-            *,
-            text: str,
-            title: str | None = None,
-            url: str | None = None,
-            image: str | None = None,
-            color: int | None = None,
-            speed: int = 1,
-            speed_type: SpeedTypes = SpeedTypes.messages,
-            reply: bool | None = True,
+        self,
+        ctx: commands.Context,
+        *,
+        text: str,
+        title: str | None = None,
+        url: str | None = None,
+        image: str | None = None,
+        color: int | None = None,
+        speed: int = 1,
+        speed_type: SpeedTypes = SpeedTypes.messages,
+        reply: bool | None = True
     ):
         """
         Pin an embed-based message to the current channel.
         """
         channel = ctx.channel
         async with self.get_channel_locks(channel.id):
+            if existing_pin := self.bot.pins.get(channel.id):
+                create_task(delete_old_message(ctx.message.channel, existing_pin.last_message))
             pin = EmbedPin(
                 channel_id=channel.id,
                 title=title,
@@ -311,8 +315,10 @@ class PinCog(commands.Cog, name="Pin"):
                 log.exception(f"Failed to restart pin in channel {channel_id} with unexpected exception:\n")
 
 
-async def delete_old_message(channel: discord.TextChannel, message_id: int):
+async def delete_old_message(channel: discord.TextChannel, message_id: int | None):
     try:
+        if not message_id:
+            return
         old_message = await channel.fetch_message(message_id)
         await old_message.delete()
     except discord.NotFound:
