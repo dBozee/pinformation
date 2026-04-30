@@ -71,7 +71,8 @@ class PinformationBot(commands.Bot):
         if self.log_channel is None:
             log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")
             return
-        embed = discord.Embed(title=f"{command_type}", timestamp=datetime.now(tz=UTC))
+        msg = f"{command_type:.250}..." if len(command_type) > 225 else command_type
+        embed = discord.Embed(title=f"{msg}", timestamp=datetime.now(tz=UTC))
         embed.add_field(name="User", value=ctx.author.mention)
         embed.add_field(name="Channel", value=ctx.channel.mention)
         if pin is not None:
