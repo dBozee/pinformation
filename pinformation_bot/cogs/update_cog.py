@@ -37,10 +37,10 @@ class UpdateCog(commands.Cog):
 
     @commands.hybrid_command(name="updateimage")
     @commands.check(check_permitted)
-    async def update_img(self, ctx: commands.Context, url: str):
+    async def update_img(self, ctx: commands.Context, url: str | None):
         """Update this channel's existing pin's image url. (embed only)"""
         await self._update_pin_attribute(ctx, "image", url)
-        await self.bot.log_pin_change(ctx, f"Updated pin image url in {ctx.channel.mention} to: {url}")
+        await self.bot.log_pin_change(ctx, f"Updated pin image url in {ctx.channel.mention} to: {url or 'none'}")
 
     @commands.hybrid_command(name="updatecolor")
     @commands.check(check_permitted)
