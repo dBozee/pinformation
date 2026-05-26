@@ -1,5 +1,5 @@
 import logging
-from asyncio import create_task
+from asyncio import create_task, gather
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -221,14 +221,32 @@ class PinCog(commands.Cog, name="Pin"):
     async def _update_pin_message(self, message: discord.Message):
         try:
             pin_data = self.bot.pins[message.channel.id]
-            if pin_data.last_message and pin_data.active:
-                create_task(delete_old_message(message.channel, pin_data.last_message))
-            new_msg = await message.channel.send(**pin_data.rebuild_msg())
+            channel = message.channel
+
+            old_message_id = pin_data.last_message
+
+            tasks = [channel.send(**pin_data.rebuild_msg())]
+            if old_message_id and pin_data.active:
+                old_msg_partial = channel.get_partial_message(old_message_id)
+                tasks.append(old_msg_partial.delete())
+
+            results = await gather(*tasks, return_exceptions=True)
+
+            new_msg = results[0]
+            if isinstance(new_msg, Exception):
+                raise new_msg
+            if len(results) > 1 and isinstance(results[1], Exception):
+                log.warning(f"Failed to delete old message concurrently: {results[1]}")
+
             pin_data.last_message = new_msg.id
             pin_data.last_message_dt = datetime.now(UTC)
-            self.bot.database.add_or_update_pin(pin_data.__dict__)
+
+            create_task(self._db_update(pin_data.__dict__))
         except Exception:
-            log.exception(f"Failed to update pin message in channel {message.channel.name} with unexpected exception:")
+            log.exception(f"Failed to update pin message in channel {message.channel.name}:")
+
+    async def _db_update(self, pin_dict: dict) -> None:
+        self.bot.database.add_or_update_pin(pin_dict)
 
     async def _restart_active_pins(self, pin_list: list[dict[str, Any] | None]):
         method_map: dict[str, Callable] = {
