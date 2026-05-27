@@ -22,6 +22,7 @@ help_pins = [
 ]
 help_management = [
     {"name": "botinfo", "value": "• Get information about the bot."},
-    {"name": "manageuser", "value": "• Add or remove a user from the bot permissions list."},
-    {"name": "managerole", "value": "• Add or remove a role from the bot permissions list."},
+    {"name": "manageadmin", "value": "• Add or remove a user from the bot's admin permissions list."},
+    {"name": "manageadminrole", "value": "• Add or remove a role from the bot's admin permissions list."},
+    {"name": "managerole", "value": "• Add or remove a role to a particular channel's permissions list."},
 ]
