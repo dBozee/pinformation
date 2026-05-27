@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import Literal
 
@@ -46,18 +47,20 @@ class ManagementCog(commands.Cog, name="Main"):
         user_id = str(user.id)
         if action == "add":
             if user_id in self.bot.config.admin_users:
-                await ctx.reply("User already in permitted list!", ephemeral=True)
+                await ctx.reply("User already in admin list!", ephemeral=True)
                 return
             self.bot.config.admin_users.append(user_id)
-            self.bot.log_action(ctx, f"Added {user.name} (`{user_id}`) to admin permissions")
-            await ctx.reply(f"Added {user.name} (`{user_id}`) to user permissions", ephemeral=True)
+            msg = f"Added {user.name} (`{user_id}`) to admin permissions"
+            await self.log_mgmt_change(ctx, msg)
+            await ctx.reply(msg, ephemeral=True)
         if action == "remove":
             if user_id not in self.bot.config.admin_users:
-                await ctx.reply("User not in permitted list!", ephemeral=True)
+                await ctx.reply("User not in admin list!", ephemeral=True)
                 return
             self.bot.config.admin_users.remove(user_id)
-            self.bot.log_action(ctx, f"Removed {user.name} (`{user_id}`) from admin permissions")
-            await ctx.reply(f"Removed {user.name} (`{user_id}`) from user permissions", ephemeral=True)
+            msg = f"Removed {user.name} (`{user_id}`) from admin permissions"
+            await self.log_mgmt_change(ctx, msg)
+            await ctx.reply(msg, ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="manageadminrole")
@@ -69,18 +72,20 @@ class ManagementCog(commands.Cog, name="Main"):
         role_id = str(role.id)
         if action == "add":
             if role_id in self.bot.config.admin_roles:
-                await ctx.reply("Role already in permitted list!", ephemeral=True)
+                await ctx.reply("Role already in admin list!", ephemeral=True)
                 return
             self.bot.config.admin_roles.append(role_id)
-            self.bot.log_action(ctx, f"Added {role.name} (`{role.id}`) to admin permissions")
-            await ctx.reply(f"Added {role.name} (`{role.id}`) to admin permissions", ephemeral=True)
+            msg = f"Added {role.name} (`{role.id}`) to admin permissions"
+            await self.log_mgmt_change(ctx, msg)
+            await ctx.reply(msg, ephemeral=True)
         if action == "remove":
             if role_id not in self.bot.config.admin_roles:
-                await ctx.reply("Role not in permitted list!", ephemeral=True)
+                await ctx.reply("Role not in admin list!", ephemeral=True)
                 return
             self.bot.config.admin_roles.remove(role_id)
-            self.bot.log_action(ctx, f"Removed {role.name} (`{role.id}`) from admin permissions")
-            await ctx.reply(f"Removed {role.name} (`{role.id}`) from admin permissions", ephemeral=True)
+            msg = f"Removed {role.name} (`{role.id}`) from admin permissions"
+            await self.log_mgmt_change(ctx, msg)
+            await ctx.reply(msg, ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="managerole")
@@ -104,7 +109,7 @@ class ManagementCog(commands.Cog, name="Main"):
 
             permitted_roles[role_id].append(channel_id)
 
-            self.bot.log_action(ctx, f"Added {channel.mention} to {role.name}'s permitted list")
+            await self.log_mgmt_change(ctx, f"Added {channel.mention} to {role.name}'s permitted list")
             await ctx.reply(f"Added {channel.mention} to {role.name}'s permitted list", ephemeral=True)
         if action == "remove":
             if role_id not in permitted_roles or channel_id not in permitted_roles[role_id]:
@@ -114,8 +119,9 @@ class ManagementCog(commands.Cog, name="Main"):
             if not permitted_roles[role_id]:  # Remove empty lists
                 permitted_roles.pop(role_id, None)
 
-            self.bot.log_action(ctx, f"Removed {channel.mention} from {role.name} permitted list")
-            await ctx.reply(f"Removed {channel.mention} from {role.name} permissions", ephemeral=True)
+            msg = f"Removed {channel.mention} from {role.name} permitted list"
+            await self.log_mgmt_change(ctx, msg)
+            await ctx.reply(msg, ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="setlogchannel")
@@ -127,8 +133,20 @@ class ManagementCog(commands.Cog, name="Main"):
         self.bot.config.log_channel = str(channel.id)
         self.bot.config.write_config_to_json()
         await self.bot.set_log_channel()
-        self.bot.log_action(ctx, f"Set log channel to {channel.mention}({channel.id})")
-        await ctx.reply(f"Set log channel to {channel.mention}({channel.id})", ephemeral=True)
+        msg = f"Set log channel to {channel.mention}({channel.id})"
+        await self.log_mgmt_change(ctx, msg)
+        await ctx.reply(msg, ephemeral=True)
+
+    async def log_mgmt_change(self, ctx: commands.Context, cmd_msg: str) -> None:
+        self.bot.log_action(ctx, cmd_msg)
+        if self.bot.log_channel is None:
+            log.info(f"{cmd_msg}: {ctx.author.name}|{ctx.author.id}")
+            return
+        msg = f"{cmd_msg:.250}..." if len(cmd_msg) > 225 else cmd_msg
+        embed = discord.Embed(title=f"{msg}", timestamp=datetime.now(tz=UTC))
+        embed.add_field(name="User", value=ctx.author.mention)
+
+        await self.bot.log_channel.send(embed=embed)
 
 
 async def setup(bot: PinformationBot):
