@@ -30,7 +30,7 @@ class DebugCog(commands.Cog):
     async def reload(self, ctx: commands.Context):
         reloaded = await self.bot.reload_extensions()
         if reloaded:
-            await ctx.reply(f"Sucessfully reloaded {', '.join(reloaded)}", ephemeral=True)
+            await ctx.reply(f"Successfully reloaded {', '.join(reloaded)}", ephemeral=True)
         else:
             await ctx.reply("Failed to reload extensions", ephemeral=True)
         self.bot.log_action(ctx, "Reloaded the bot")

@@ -37,16 +37,38 @@ async def get_pin(ctx: commands.Context, bot: PinformationBot, channel_id: int) 
     return None
 
 
+async def _check_admin(ctx: commands.Context) -> bool:
+    if (str(ctx.author.id)) in ctx.bot.config.admin_users:
+        return True
+    user_role_ids = [str(role.id) for role in ctx.author.roles]
+    return bool(any(admin_role in user_role_ids for admin_role in ctx.bot.config.admin_roles))
+
+
+async def check_admin(ctx: commands.Context) -> bool:
+    if await _check_admin(ctx):
+        return True
+
+    await ctx.reply("You are not authorized to use this command!", ephemeral=True)
+    log.warning(f"{ctx.author.name}({ctx.author.id}): attempted to use the {ctx.command} command.")
+    return False
+
+
 async def check_permitted(ctx: commands.Context) -> bool:
     """
     checks if ctx author is allowlisted either by their user_id or a role_id.
     If false, the user is given an ephemeral message that they don't have permission
     and logs that the user tried to use a role outside their permissions.
     """
-    if str(ctx.author.id) in ctx.bot.config.permitted_users:
+    if await _check_admin(ctx):
         return True
-    if any(role for role in ctx.author.roles if str(role.id) in ctx.bot.config.permitted_roles):
-        return True
+
+    user_role_ids = [str(role.id) for role in ctx.author.roles]
+    permitted_roles = ctx.bot.config.permitted_roles
+
+    for role_id in user_role_ids:
+        if role_id in permitted_roles and str(ctx.channel.id) in permitted_roles[role_id]:
+            return True
+
     await ctx.reply("You are not authorized to use this command!", ephemeral=True)
     log.warning(f"{ctx.author.name}({ctx.author.id}): attempted to use the {ctx.command} command.")
     return False

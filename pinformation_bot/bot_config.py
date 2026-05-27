@@ -16,8 +16,9 @@ class BotConfig:
     """
 
     prefix: str
-    permitted_users: list[str]
-    permitted_roles: list[str]
+    admin_users: list[str]
+    admin_roles: list[str]
+    permitted_roles: dict[str, list[str]]
     log_channel: str
     embed_color: int
     cogs: list[str]

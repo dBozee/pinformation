@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from ..pinformation import PinformationBot
-from ..utils.utils import check_permitted
+from ..utils.utils import check_admin
 
 log = getLogger(__name__)
 VERSION = "0.0.1"
@@ -37,71 +37,98 @@ class ManagementCog(commands.Cog, name="Main"):
         embed.add_field(name="version", value=VERSION)
         await ctx.reply(embed=embed, mention_author=False, ephemeral=True)
 
-    @commands.hybrid_command(name="manageuser")
-    @commands.check(check_permitted)
-    async def manage_user(self, ctx: commands.Context, user_id: str, action: Literal["add", "remove"]):
+    @commands.hybrid_command(name="manageadmin")
+    @commands.check(check_admin)
+    async def manage_admin(self, ctx: commands.Context, action: Literal["add", "remove"], user: discord.User):
         """
-        Add or remove a user from the bot permissions.
+        Add or remove an admin user from the bot permissions.
         """
-        if not (user := self.bot.get_user(int(user_id))):
-            await ctx.reply(f"No user with {user_id} found.", ephemeral=True)
-            return
+        user_id = str(user.id)
         if action == "add":
-            if user_id in self.bot.config.permitted_users:
+            if user_id in self.bot.config.admin_users:
                 await ctx.reply("User already in permitted list!", ephemeral=True)
                 return
-            self.bot.config.permitted_users.append(user_id)
-            self.bot.log_action(ctx, f"Added {user.name}({user_id}) to user permissions")
-            await ctx.reply(f"Added {user.name}({user_id}) to user permissions", ephemeral=True)
+            self.bot.config.admin_users.append(user_id)
+            self.bot.log_action(ctx, f"Added {user.name} (`{user_id}`) to admin permissions")
+            await ctx.reply(f"Added {user.name} (`{user_id}`) to user permissions", ephemeral=True)
         if action == "remove":
-            if user_id not in self.bot.config.permitted_users:
+            if user_id not in self.bot.config.admin_users:
                 await ctx.reply("User not in permitted list!", ephemeral=True)
                 return
-            self.bot.config.permitted_users.remove(user_id)
-            self.bot.log_action(ctx, f"Removed  {user.name}({user_id}) from user permissions")
-            await ctx.reply(f"Removed {user.name}({user_id}) from user permissions", ephemeral=True)
+            self.bot.config.admin_users.remove(user_id)
+            self.bot.log_action(ctx, f"Removed {user.name} (`{user_id}`) from admin permissions")
+            await ctx.reply(f"Removed {user.name} (`{user_id}`) from user permissions", ephemeral=True)
+        self.bot.config.write_config_to_json()
+
+    @commands.hybrid_command(name="manageadminrole")
+    @commands.check(check_admin)
+    async def manage_admin_role(self, ctx: commands.Context, action: Literal["add", "remove"], role: discord.Role):
+        """
+        Add or remove an admin role from the bot permissions.
+        """
+        role_id = str(role.id)
+        if action == "add":
+            if role_id in self.bot.config.admin_roles:
+                await ctx.reply("Role already in permitted list!", ephemeral=True)
+                return
+            self.bot.config.admin_roles.append(role_id)
+            self.bot.log_action(ctx, f"Added {role.name} (`{role.id}`) to admin permissions")
+            await ctx.reply(f"Added {role.name} (`{role.id}`) to admin permissions", ephemeral=True)
+        if action == "remove":
+            if role_id not in self.bot.config.admin_roles:
+                await ctx.reply("Role not in permitted list!", ephemeral=True)
+                return
+            self.bot.config.admin_roles.remove(role_id)
+            self.bot.log_action(ctx, f"Removed {role.name} (`{role.id}`) from admin permissions")
+            await ctx.reply(f"Removed {role.name} (`{role.id}`) from admin permissions", ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="managerole")
-    @commands.check(check_permitted)
-    async def manage_role(self, ctx: commands.Context, role_id: str, action: Literal["add", "remove"]):
+    @commands.check(check_admin)
+    async def manage_role(
+        self, ctx: commands.Context, action: Literal["add", "remove"], role: discord.Role, channel: discord.TextChannel
+    ):
         """
-        Add or remove a role from the bot permissions.
+        Add or remove permissions for a given role to a given channel.
         """
-
-        if not (role := ctx.guild.get_role(int(role_id))):
-            await ctx.reply(f"No role with {role_id} found.", ephemeral=True)
-            return
+        role_id = str(role.id)
+        channel_id = str(channel.id)
+        permitted_roles = self.bot.config.permitted_roles
         if action == "add":
-            if role_id in self.bot.config.permitted_roles:
-                await ctx.reply("Role already in permitted list!", ephemeral=True)
+            if role_id not in permitted_roles:
+                permitted_roles[role_id] = []
+
+            if channel_id in permitted_roles[role_id]:
+                await ctx.reply("Role already has access to this channel!", ephemeral=True)
                 return
-            self.bot.config.permitted_roles.append(role_id)
-            self.bot.log_action(ctx, f"Added {role.name}({role_id}) to role permissions")
-            await ctx.reply(f"Added {role.name}({role_id}) to role permissions", ephemeral=True)
+
+            permitted_roles[role_id].append(channel_id)
+
+            self.bot.log_action(ctx, f"Added {channel.mention} to {role.name}'s permitted list")
+            await ctx.reply(f"Added {channel.mention} to {role.name}'s permitted list", ephemeral=True)
         if action == "remove":
-            if role_id not in self.bot.config.permitted_roles:
-                await ctx.reply("Role not in permitted list!", ephemeral=True)
+            if role_id not in permitted_roles or channel_id not in permitted_roles[role_id]:
+                await ctx.reply("Role or channel not in permitted list!", ephemeral=True)
                 return
-            self.bot.config.permitted_roles.remove(role_id)
-            self.bot.log_action(ctx, f"Removed {role.name}({role_id}) from role permissions")
-            await ctx.reply(f"Romved {role.name}({role_id}) from role permissions", ephemeral=True)
+            permitted_roles[role_id].remove(channel_id)
+            if not permitted_roles[role_id]:  # Remove empty lists
+                permitted_roles.pop(role_id, None)
+
+            self.bot.log_action(ctx, f"Removed {channel.mention} from {role.name} permitted list")
+            await ctx.reply(f"Removed {channel.mention} from {role.name} permissions", ephemeral=True)
         self.bot.config.write_config_to_json()
 
     @commands.hybrid_command(name="setlogchannel")
-    @commands.check(check_permitted)
-    async def set_log_channel(self, ctx: commands.Context, channel_id: str):
+    @commands.check(check_admin)
+    async def set_log_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """
         Set the log channel for the bot.
         """
-        if not (channel := await ctx.guild.fetch_channel(int(channel_id))):
-            await ctx.reply(f"No channel with {channel_id} found.", ephemeral=True)
-            return
-        self.bot.config.log_channel = channel_id
+        self.bot.config.log_channel = str(channel.id)
         self.bot.config.write_config_to_json()
         await self.bot.set_log_channel()
-        self.bot.log_action(ctx, f"Set log channel to {channel.name}({channel_id})")
-        await ctx.reply(f"Set log channel to {channel.name}({channel_id})", ephemeral=True)
+        self.bot.log_action(ctx, f"Set log channel to {channel.mention}({channel.id})")
+        await ctx.reply(f"Set log channel to {channel.mention}({channel.id})", ephemeral=True)
 
 
 async def setup(bot: PinformationBot):

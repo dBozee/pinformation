@@ -1,7 +1,17 @@
 {
   "prefix": "+",
-  "permitted_users": [],
-  "permitted_roles": [],
+  "admin_users": [
+    "123456789"
+  ],
+  "admin_roles": [
+    "123456789"
+  ],
+  "permitted_roles": {
+    "123456789": [
+      "123456789",
+      "987654321"
+    ]
+  },
   "log_channel": "123456789",
   "embed_color": 14517504,
   "cogs": [
