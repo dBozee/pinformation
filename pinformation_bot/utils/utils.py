@@ -13,9 +13,12 @@ async def handle_reply(ctx: commands.Context, msg: str, success: bool = True, re
     if ctx.author.bot:
         return
     if ctx.interaction is None or not reply:
-        react = "✅" if success else "❌"
-        await ctx.message.add_reaction(react)
-        return
+        try:
+            react = "✅" if success else "❌"
+            await ctx.message.add_reaction(react)
+            return
+        except discord.Forbidden:
+            log.debug(f"Failed to react to message in channel {ctx.channel.name}")
     await ctx.reply(msg, ephemeral=reply)
 
 
