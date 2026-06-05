@@ -1,6 +1,6 @@
 [project]
 name = "pinformation-bot"
-version = "0.0.1"
+version = "1.0.0"
 description = "A simple Discord bot for pinning messages to the bottom of a channel"
 authors = [{ name = "dBozee" }]
 requires-python = ">=3.14"
@@ -8,7 +8,7 @@ license = "MIT"
 dependencies = [
     "discord.py",
     "python-dotenv",
-    "ruff>=0.14.9",
+    "ruff",
 ]
 
 [tool.hatch.build.targets.sdist]

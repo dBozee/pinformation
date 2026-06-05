@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from importlib.metadata import version
 from logging import getLogger
 from typing import Literal
 
@@ -9,7 +10,6 @@ from ..pinformation import PinformationBot
 from ..utils.utils import check_admin
 
 log = getLogger(__name__)
-VERSION = "0.0.1"
 """
 This cog is for managing the bot and adding/removing users/roles to the bot.
 """
@@ -34,8 +34,11 @@ class ManagementCog(commands.Cog, name="Main"):
             url="https://github.com/dBozee/pinformation/tree/main",
             color=self.bot.config.embed_color,
         )
+
         embed.add_field(name="Written by", value="<@160074289289101313>")
-        embed.add_field(name="version", value=VERSION)
+        embed.add_field(name="Version", value=version("pinformation_bot"))
+        embed.add_field(name="Prefix", value=f"`{self.bot.config.prefix}`")
+        embed.add_field(name="Ping", value=f"`{round(self.bot.latency * 1000)}`ms")
         await ctx.reply(embed=embed, mention_author=False, ephemeral=True)
 
     @commands.hybrid_command(name="manageadmin")
