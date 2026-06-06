@@ -126,10 +126,14 @@ class PinCog(commands.Cog, name="Pin"):
         if not (pin := await get_pin(ctx, self.bot, channel_id)):
             return
         async with ChannelLock(channel_id):
-            if isinstance(pin, (TextPin, EmbedPin)):
-                await ctx.reply(f"Pin text:\n```json\n{pin.text}```", ephemeral=True)
-            else:
+            if not isinstance(pin, (TextPin, EmbedPin)):
                 await ctx.reply("Unknown pin type!", ephemeral=True)
+                return
+            embed = discord.Embed()
+            embed.add_field(name="Pin Type", value=f"`{pin.pin_type}`")
+            embed.add_field(name="Pin Speed", value=f"`{pin.speed} {pin.speed_type}`")
+            embed.add_field(name="Pin text", value=f"```json\n{pin.text}```", inline=False)
+            await ctx.reply(embed=embed, ephemeral=True)
 
     @commands.hybrid_command(name="pinspeed")
     @commands.check(check_permitted)
