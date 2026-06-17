@@ -16,14 +16,17 @@ class UpdateCog(commands.Cog):
 
     @commands.hybrid_command(name="updatetext")
     @commands.check(check_permitted)
-    async def update_pin(self, ctx: commands.Context, *, text: str):
+    async def update_pin(self, ctx: commands.Context, *, text: str | None):
         """Update this channel's existing pin's text/description"""
+        if not text and self.bot.pins[ctx.channel.id].pin_type == "text":
+            await ctx.reply("Cannot remove text from a text pin...", ephemeral=True)
+            return
         await self._update_pin_attribute(ctx, "text", text, require_embed=False)
         await self.bot.log_pin_change(ctx, f"Updated pin text in {ctx.channel.mention} to: {text}")
 
     @commands.hybrid_command(name="updatetitle")
     @commands.check(check_permitted)
-    async def update_title(self, ctx: commands.Context, title: str):
+    async def update_title(self, ctx: commands.Context, title: str | None):
         """Update this channel's existing pin's title. (embed only)"""
         await self._update_pin_attribute(ctx, "title", title)
         await self.bot.log_pin_change(ctx, f"Updated pin title in {ctx.channel.mention} to: {title}")
@@ -39,6 +42,8 @@ class UpdateCog(commands.Cog):
     @commands.check(check_permitted)
     async def update_img(self, ctx: commands.Context, url: str | None):
         """Update this channel's existing pin's image url. (embed only)"""
+        if not url and ctx.message.attachments:
+            url = ctx.message.attachments[0].url
         await self._update_pin_attribute(ctx, "image", url)
         await self.bot.log_pin_change(ctx, f"Updated pin image url in {ctx.channel.mention} to: {url or 'none'}")
 

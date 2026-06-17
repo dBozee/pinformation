@@ -72,6 +72,8 @@ class PinCog(commands.Cog, name="Pin"):
         """Pin an embed-based message to the current channel."""
         channel = ctx.channel
         async with ChannelLock(channel.id):
+            if not image and ctx.message.attachments:
+                image = ctx.message.attachments[0].url
             pin = await self._create_embed_pin(
                 channel, channel.id, title, text, url, image, color or self.bot.config.embed_color, speed, speed_type
             )
