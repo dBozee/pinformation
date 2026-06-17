@@ -60,7 +60,7 @@ class PinCog(commands.Cog, name="Pin"):
         self,
         ctx: commands.Context,
         *,
-        text: str,
+        text: str | None = None,
         title: str | None = None,
         url: str | None = None,
         image: str | None = None,
@@ -74,6 +74,8 @@ class PinCog(commands.Cog, name="Pin"):
         async with ChannelLock(channel.id):
             if not image and ctx.message.attachments:
                 image = ctx.message.attachments[0].url
+            if text is None:
+                text = ''
             pin = await self._create_embed_pin(
                 channel, channel.id, title, text, url, image, color or self.bot.config.embed_color, speed, speed_type
             )
