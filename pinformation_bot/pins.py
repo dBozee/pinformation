@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, override
 
 import discord
+from discord.embeds import Embed
 
 
 class SpeedTypes(StrEnum):
@@ -14,15 +15,15 @@ class Pin:
     """Base Pin class"""
 
     def __init__(self, channel_id: int, speed: int, speed_type: SpeedTypes = SpeedTypes.messages):
-        self.channel_id = channel_id
+        self.channel_id: int = channel_id
         self.pin_type: str = "base"
         self.speed: int = speed
-        self.msg_count = 0
-        self.speed_type = speed_type
+        self.msg_count: int = 0
+        self.speed_type: SpeedTypes = speed_type
         self.message_obj: Any = None
         self.last_message: int | None = None
         self.last_message_dt: datetime | None = None
-        self.started = datetime.now(UTC).timestamp()
+        self.started: float = datetime.now(UTC).timestamp()
         self.active: bool = True
 
     def get_self_data(self):
@@ -32,7 +33,7 @@ class Pin:
     def increment_msg_count(self):
         self.msg_count += 1
 
-    def rebuild_msg(self):
+    def rebuild_msg(self) -> dict[str, Any]:
         raise NotImplementedError("This method should be overridden in subclass.")
 
 
@@ -40,9 +41,10 @@ class TextPin(Pin):
     def __init__(self, channel_id: int, text: str, speed: int, speed_type: SpeedTypes = SpeedTypes.messages):
         super().__init__(channel_id, speed, speed_type=speed_type)
         self.pin_type: str = "text"
-        self.text = text
+        self.text: str = text
 
-    def rebuild_msg(self):
+    @override
+    def rebuild_msg(self) -> dict[str, str]:
         return {"content": self.text}
 
 
@@ -60,11 +62,11 @@ class EmbedPin(Pin):
     ):
         super().__init__(channel_id, speed, speed_type)
         self.pin_type: str = "embed"
-        self.title = title
-        self.text = text
-        self.url = url
-        self.image = image
-        self.color = color
+        self.title: str | None = title
+        self.text: str | None = text
+        self.url: str | None = url
+        self.image: str | None = image
+        self.color: int | None = color
         self.embed: discord.Embed = self.create_embed()
 
     def create_embed(self) -> discord.Embed:
@@ -77,13 +79,14 @@ class EmbedPin(Pin):
         )
         if self.image:
             image = self.image
-            embed.set_image(url=image)
+            _ = embed.set_image(url=image)
 
         return embed
 
-    def get_embed_info(self) -> dict:
+    def get_embed_info(self) -> dict[str, Any]:
         # noinspection PyTypeChecker
-        return self.embed.to_dict()  # bad typehint from the library
+        return self.embed.to_dict()  # pyright: ignore[reportReturnType] bad typehint from the library
 
-    def rebuild_msg(self):
+    @override
+    def rebuild_msg(self) -> dict[str, Embed]:
         return {"embed": self.embed}

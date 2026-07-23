@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from sqlite3.dbapi2 import Cursor
 from typing import Any
 
 from .bot_config import CONFIG_FOLDER
@@ -9,8 +10,8 @@ class Database:
     def __init__(self):
         self.file_path: Path = Path(CONFIG_FOLDER / "pin_cache.db")
         self.db: sqlite3.Connection = sqlite3.connect(self.file_path)
-        self.cur = self.db.cursor()
-        self.cur.execute(
+        self.cur: Cursor = self.db.cursor()
+        _ = self.cur.execute(
             "CREATE TABLE IF NOT EXISTS pins(\
             channel_id TEXT PRIMARY KEY,\
             pin_type STRING,\
@@ -43,7 +44,7 @@ class Database:
             pin_data.get("image"),
             pin_data.get("color"),
         )
-        self.cur.execute(
+        _ = self.cur.execute(
             "INSERT OR REPLACE INTO pins(\
             channel_id,\
             pin_type,\
@@ -61,14 +62,14 @@ class Database:
         )
         self.db.commit()
 
-    def remove_pin(self, channel_id):
-        self.cur.execute("DELETE FROM pins WHERE channel_id = ?", (channel_id,))
+    def remove_pin(self, channel_id: int) -> None:
+        _ = self.cur.execute("DELETE FROM pins WHERE channel_id = ?", (channel_id,))
         self.db.commit()
 
     def get_cached_pins(self) -> list[dict[str, Any]]:
         self.db.row_factory = sqlite3.Row
         query_res: list[sqlite3.Row] = self.cur.execute("SELECT * FROM pins WHERE active = 1").fetchall()
-        results = []
+        results: list[dict[str, Any]] = []
         for result in query_res:
             results.append({
                 "channel_id": result[0],

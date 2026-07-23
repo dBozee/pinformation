@@ -2,6 +2,7 @@ import logging
 from asyncio import sleep
 from datetime import UTC, datetime
 from json import dumps
+from typing import override
 
 import discord
 from discord.ext import commands
@@ -31,24 +32,25 @@ class PinformationBot(commands.Bot):
 
         self.config: BotConfig = config
         self.database: Database = Database()
-        self.pins: dict[int, Pin] = {}
+        self.pins: dict[int, TextPin | EmbedPin] = {}
         self.log_channel: discord.TextChannel | None = None
 
     async def set_log_channel(self) -> None:
         if self.config.log_channel:
-            self.log_channel = await self.fetch_channel(int(self.config.log_channel))  # noqa
+            self.log_channel = await self.fetch_channel(int(self.config.log_channel))  # pyright: ignore[reportAttributeAccessIssue]
             if isinstance(self.log_channel, discord.TextChannel):
                 log.info(f"Logging to #{self.log_channel.name}")
                 return
         log.warning(f"Text channel with ID {self.config.log_channel} not found. Logging to console only.")
         self.log_channel = None
 
+    @override
     async def setup_hook(self) -> None:
         # add cogs
         for cog in self.config.cogs:
             await self.load_extension(cog)
         if self.config.debug:
-            log.debug("----- DEBUB MODE ENABLED -----")
+            log.debug("----- DEBUG MODE ENABLED -----")
             await self.load_extension("pinformation_bot.cogs.debug_cog")
 
         await self.set_log_channel()
@@ -67,33 +69,34 @@ class PinformationBot(commands.Bot):
         await sleep(1)
         return list(self.extensions)
 
-    async def log_pin_change(self, ctx: commands.Context, command_type: str, pin: Pin | None = None) -> None:
+    async def log_pin_change(
+        self, ctx: commands.Context[PinformationBot], command_type: str, pin: TextPin | EmbedPin | None = None
+    ) -> None:
         if self.log_channel is None:
             log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")
             return
         msg = f"{command_type:.250}..." if len(command_type) > 225 else command_type
         embed = discord.Embed(title=f"{msg}", timestamp=datetime.now(tz=UTC))
-        embed.add_field(name="User", value=ctx.author.mention)
-        embed.add_field(name="Channel", value=ctx.channel.mention)
+        _ = embed.add_field(name="User", value=ctx.author.mention)
+        _ = embed.add_field(name="Channel", value=ctx.channel.mention)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
         if pin is not None:
             max_len = 999
-            embed.add_field(name="Pin Type", value=pin.pin_type)
+            _ = embed.add_field(name="Pin Type", value=pin.pin_type)
             if isinstance(pin, EmbedPin):
-                embed.add_field(
+                _ = embed.add_field(
                     name="Content",
                     value=f"```json\n{truncate(dumps(pin.get_embed_info(), indent=2), max_len)}```",
                     inline=False,
                 )
+            else:
+                _ = embed.add_field(name="Content", value=f"```\n{truncate(pin.text, max_len)}```", inline=False)
+            if pin.text and len(pin.text) > max_len:
+                _ = embed.set_footer(text=f"Content truncated to {max_len} characters.")
 
-            elif isinstance(pin, TextPin):
-                embed.add_field(name="Content", value=f"```\n{truncate(pin.text, max_len)}```", inline=False)
-            if len(pin.text) > max_len:
-                embed.set_footer(text=f"Content truncated to {max_len} characters.")
-
-        await self.log_channel.send(embed=embed)
+        _ = await self.log_channel.send(embed=embed)
 
     @staticmethod
-    def log_action(ctx: commands.Context, message: str) -> None:
+    def log_action(ctx: commands.Context[PinformationBot], message: str) -> None:
         log.info(f"{ctx.author.name}({ctx.author.id}): {message}")
 
 

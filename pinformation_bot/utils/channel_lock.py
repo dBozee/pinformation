@@ -1,14 +1,16 @@
 from asyncio import Lock
+from types import TracebackType
 
 
 class ChannelLock:
     """
     An independent context manager for channel-level locks. Maintains its own registry of locks keyed by channel_id.
     """
+
     _locks: dict[int, Lock] = {}
 
     def __init__(self, channel_id: int):
-        self.channel_id = channel_id
+        self.channel_id: int = channel_id
         self.lock: Lock | None = None
 
     async def __aenter__(self):
@@ -18,7 +20,9 @@ class ChannelLock:
         await self.lock.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+    ):
         if self.lock:
             await self.lock.__aexit__(exc_type, exc_val, exc_tb)
 
@@ -28,7 +32,7 @@ class ChannelLock:
         Remove a channel's lock from the registry.
         Call this when a pin is removed from a channel.
         """
-        cls._locks.pop(channel_id, None)
+        _ = cls._locks.pop(channel_id, None)
 
     @classmethod
     def is_locked(cls, channel_id: int) -> bool:
