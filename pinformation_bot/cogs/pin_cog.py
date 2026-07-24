@@ -72,11 +72,16 @@ class PinCog(commands.Cog, name="Pin"):
     ):
         """Pin an embed-based message to the current channel."""
         channel = ctx.channel
+        if not any((text, title, image)):
+            _ = await ctx.reply("You must provide at least one of text, title, or image!", ephemeral=True)
+            return
         async with ChannelLock(channel.id):
             if not image and ctx.message.attachments:
                 image = ctx.message.attachments[0].url
             if text is None:
                 text = ''
+            if not title and url:
+                title = url
             pin = await self._create_embed_pin(
                 channel, channel.id, title, text, url, image, color or self.bot.config.embed_color, speed, speed_type
             )
@@ -234,7 +239,11 @@ class PinCog(commands.Cog, name="Pin"):
             old_message_id = pin_data.last_message
 
             send_coro: Coroutine[None, None, Message] = pin_data.send_to(channel)
-            if old_message_id and pin_data.active and isinstance(channel, discord.TextChannel):
+            if (
+                old_message_id
+                and pin_data.active
+                and isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.Thread))
+            ):
                 old_msg_partial: PartialMessage = channel.get_partial_message(old_message_id)
                 delete_coro: Coroutine[None, None, None] = old_msg_partial.delete()
 

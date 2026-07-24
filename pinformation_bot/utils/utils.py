@@ -27,10 +27,10 @@ async def delete_old_message(channel: discord.abc.Messageable, message_id: int |
         return
 
     try:
-        if isinstance(channel, discord.TextChannel):
-            partial_msg = channel.get_partial_message(message_id)
-            await partial_msg.delete()
-        else: # Fallback if somehow this isn't a text channel
+        # use bulk delete endpoint for TextChannel/VoiceChannel/Thread
+        if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.Thread)):
+            await channel.delete_messages([discord.Object(id=message_id)])
+        else:  # fallback for Direct Messages or raw Messageable objects
             msg = await channel.fetch_message(message_id)
             await msg.delete()
 
@@ -42,9 +42,7 @@ async def delete_old_message(channel: discord.abc.Messageable, message_id: int |
         log.warning(f"Failed to delete last message in {channel_name} with HTTP exception: {e}")
 
 
-async def get_pin(
-    ctx: commands.Context[PinformationBot], bot: PinformationBot, channel_id: int
-) -> PinUnion | None:
+async def get_pin(ctx: commands.Context[PinformationBot], bot: PinformationBot, channel_id: int) -> PinUnion | None:
     if pin := bot.pins.get(channel_id):
         return pin
     _ = await ctx.reply("No active pin in this channel!", ephemeral=True)
