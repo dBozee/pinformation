@@ -7,6 +7,7 @@ services:
     container_name: pinformation_bot
     volumes:
       - .:/app
+      - /app/.venv
       - ./pinformation_bot/config:/app/pinformation_bot/config
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}

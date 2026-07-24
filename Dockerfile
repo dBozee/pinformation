@@ -1,10 +1,12 @@
 ARG PYTHON_VERSION=3.14
 
 #build stage
-FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-trixie-slim AS builder
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
 #install gcc for aiohttp
@@ -25,6 +27,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
 
+# Runtime stage
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
@@ -33,4 +36,5 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
+
 CMD ["python", "-m", "pinformation_bot"]
