@@ -3,11 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    
+
     container_name: pinformation_bot
     volumes:
+      - .:/app
       - ./pinformation_bot/config:/app/pinformation_bot/config
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - LOG_LEVEL=DEBUG
+      - PYTHONDONTWRITEBYTECODE=1
     restart: unless-stopped

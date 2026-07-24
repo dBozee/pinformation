@@ -1,8 +1,11 @@
+ARG PYTHON_VERSION=3.14
+
 #build stage
-FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
-COPY . /app
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-trixie-slim AS builder
+
 WORKDIR /app
-ENV UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1
+    UV_LINK_MODE=copy
 
 #install gcc for aiohttp
 RUN apt-get update \
@@ -12,10 +15,17 @@ RUN apt-get update \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN uv venv && uv sync
+COPY pyproject.toml uv.lock* ./
 
-#runtime stage
-FROM python:3.14-slim
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv && uv sync --frozen --no-install-project
+
+COPY . .
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen
+
+FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 
