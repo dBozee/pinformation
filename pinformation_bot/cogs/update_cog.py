@@ -72,9 +72,9 @@ class UpdateCog(commands.Cog):
             _ = create_task(delete_old_message(ctx.message.channel, pin.last_message))
             setattr(pin, attribute_name, value)
             if isinstance(pin, EmbedPin):
-                message = await channel.send(embed=pin.embed)
-            else:
-                message = await channel.send(pin.text, suppress_embeds=True)
+                pin.rebuild_embed()
+
+            message = await pin.send_to(channel)
 
             pin.last_message = message.id
             pin.last_message_dt = datetime.now(UTC)

@@ -1,5 +1,5 @@
 import logging
-from asyncio import create_task, gather
+from asyncio import Task, create_task, gather
 from collections.abc import Coroutine
 from datetime import UTC, datetime, timedelta
 from typing import cast
@@ -119,6 +119,7 @@ class PinCog(commands.Cog, name="Pin"):
             if ctx.interaction is not None:
                 _ = await ctx.reply("re-activated pin!", ephemeral=True)
             await self.bot.log_pin_change(ctx, "Restarted Pin", pin)
+            _ = create_task(self._db_update(pin))
 
     @commands.hybrid_command(name="getpintext")
     @commands.check(check_permitted)
@@ -256,23 +257,37 @@ class PinCog(commands.Cog, name="Pin"):
     async def _db_update(self, pin: PinUnion) -> None:
         self.bot.database.add_or_update_pin(pin)
 
-    async def _restart_active_pins(self, pin_list: list[PinUnion]):
-        """Restores cached pins from DB models on bot startup."""
-        for pin in pin_list:
-            if not pin.last_message:
-                continue
+    async def _restart_single_pin(self, pin: PinUnion) -> None:
+        try:
+            channel = cast(TextChannel, await self.bot.fetch_channel(pin.channel_id))
 
-            try:
-                channel: TextChannel = cast(TextChannel, await self.bot.fetch_channel(pin.channel_id))
-                last_bot_msg: Message = await channel.fetch_message(pin.last_message)
-                log.info(
-                    f"Last Message found for channel {channel.name} with ID {last_bot_msg.id}. Attempting to restart pin..."  # noqa: E501
-                )
+            if pin.last_message:
+                try:
+                    last_bot_msg = await channel.fetch_message(pin.last_message)
+                    log.info(
+                        f"Last Message found for channel {channel.name} with ID {last_bot_msg.id}. Deleting old pin..."
+                    )
+                    await last_bot_msg.delete()
+                except discord.NotFound:
+                    log.warning(f"Old pin message {pin.last_message} not found in {channel.name}.")
 
-                self.bot.pins[pin.channel_id] = pin
-                _ = await last_bot_msg.delete()
-            except discord.NotFound:
-                log.exception(f"Failed to restart pin in channel {pin.channel_id} with unexpected exception:\n")
+            new_msg = await pin.send_to(channel)
+            pin.last_message = new_msg.id
+            pin.last_message_dt = datetime.now(UTC)
+
+            self.bot.pins[pin.channel_id] = pin
+            await self._db_update(pin)
+
+        except Exception:
+            log.exception(f"Failed to restart pin in channel {pin.channel_id}:")
+
+    async def _restart_active_pins(self, pin_list: list[PinUnion]) -> None:
+        """Restores cached pins from DB models concurrently on bot startup."""
+        if not pin_list:
+            return
+
+        tasks: list[Task[None]] = [create_task(self._restart_single_pin(pin)) for pin in pin_list]
+        _ = await gather(*tasks, return_exceptions=True)
 
     async def _create_text_pin(
         self,

@@ -12,16 +12,14 @@ class SpeedTypes(StrEnum):
     seconds = "seconds"
 
 
-type PinType = Literal["text", "embed", "base"]
-PinUnion = Annotated['TextPin | EmbedPin', Field(discriminator="pin_type")]
-PinAdapter: TypeAdapter[PinUnion] = TypeAdapter(PinUnion)
+type PinType = Literal["text", "embed", "messages"]
 
 
-class PinModel(BaseModel):
+class PinModel[T: PinType](BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
     channel_id: int
-    pin_type: PinType = "base"
+    pin_type: T
     speed: int = 1
     speed_type: SpeedTypes = SpeedTypes.messages
     msg_count: int = 0
@@ -45,14 +43,15 @@ class PinModel(BaseModel):
     @classmethod
     def from_db_row(cls, row: dict[str, Any]) -> PinUnion:
         """Factory method to parse a database row into the appropriate Pin model subclass."""
-        return PinAdapter.validate_python(row)
+        clean_row = {k: v for k, v in row.items() if v is not None}  # pyright: ignore[reportAny]
+        return PinAdapter.validate_python(clean_row)
 
-    async def send_to(self, channel: discord.abc.Messageable) -> discord.Message:
+    async def send_to(self, _channel: discord.abc.Messageable) -> discord.Message:
         raise NotImplementedError
 
 
-class TextPin(PinModel):
-    pin_type: PinType = "text"
+class TextPin(PinModel[Literal["text"]]):
+    pin_type: Literal["text"] = "text"
     text: str = ""
 
     @override
@@ -73,8 +72,8 @@ class TextPin(PinModel):
         return await channel.send(content=self.text)
 
 
-class EmbedPin(PinModel):
-    pin_type: PinType = "embed"
+class EmbedPin(PinModel[Literal["embed"]]):
+    pin_type: Literal["embed"] = "embed"
     title: str | None = None
     text: str = ""
     url: str | None = None
@@ -98,6 +97,18 @@ class EmbedPin(PinModel):
             self.embed = embed
         return self
 
+    def rebuild_embed(self) -> None:
+        embed = discord.Embed(
+            title=self.title,
+            type="rich",
+            url=self.url,
+            color=self.color,
+            description=self.text,
+        )
+        if self.image:
+            _ = embed.set_image(url=self.image)
+        self.embed = embed
+
     def get_embed_info(self) -> dict[str, Any]:
         return dict(self.embed.to_dict())
 
@@ -120,3 +131,7 @@ class EmbedPin(PinModel):
     @override
     async def send_to(self, channel: discord.abc.Messageable) -> discord.Message:
         return await channel.send(embed=self.embed)
+
+
+PinUnion = Annotated[TextPin | EmbedPin, Field(discriminator="pin_type")]
+PinAdapter: TypeAdapter[PinUnion] = TypeAdapter(PinUnion)
