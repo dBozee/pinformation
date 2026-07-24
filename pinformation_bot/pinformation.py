@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from .bot_config import BotConfig
 from .db_funcs import Database
-from .pins import EmbedPin, Pin, TextPin
+from .pins import EmbedPin, PinUnion
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -32,7 +32,7 @@ class PinformationBot(commands.Bot):
 
         self.config: BotConfig = config
         self.database: Database = Database()
-        self.pins: dict[int, TextPin | EmbedPin] = {}
+        self.pins: dict[int, PinUnion] = {}
         self.log_channel: discord.TextChannel | None = None
 
     async def set_log_channel(self) -> None:
@@ -70,7 +70,7 @@ class PinformationBot(commands.Bot):
         return list(self.extensions)
 
     async def log_pin_change(
-        self, ctx: commands.Context[PinformationBot], command_type: str, pin: TextPin | EmbedPin | None = None
+        self, ctx: commands.Context[PinformationBot], command_type: str, pin: PinUnion | None = None
     ) -> None:
         if self.log_channel is None:
             log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")

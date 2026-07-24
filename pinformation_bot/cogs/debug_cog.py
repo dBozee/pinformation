@@ -13,13 +13,13 @@ class DebugCog(commands.Cog):
 
     @commands.hybrid_command(name="shutdown")
     @commands.check(check_permitted)
-    async def shutdown(self, ctx: commands.Context):
+    async def shutdown(self, ctx: commands.Context[PinformationBot]):
         """
         Shut down the bot.
         """
 
         self.bot.log_action(ctx, "Shut down the bot")
-        await ctx.reply("Shutting down...", ephemeral=True)
+        _ = await ctx.reply("Shutting down...", ephemeral=True)
         await sleep(1)
         self.bot.database.db.close()
         await self.bot.close()
@@ -27,12 +27,12 @@ class DebugCog(commands.Cog):
 
     @commands.hybrid_command(name="reload")
     @commands.check(check_permitted)
-    async def reload(self, ctx: commands.Context):
+    async def reload(self, ctx: commands.Context[PinformationBot]):
         reloaded = await self.bot.reload_extensions()
         if reloaded:
-            await ctx.reply(f"Successfully reloaded {', '.join(reloaded)}", ephemeral=True)
+            _ = await ctx.reply(f"Successfully reloaded {', '.join(reloaded)}", ephemeral=True)
         else:
-            await ctx.reply("Failed to reload extensions", ephemeral=True)
+            _ = await ctx.reply("Failed to reload extensions", ephemeral=True)
         self.bot.log_action(ctx, "Reloaded the bot")
 
 

@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 
 from pinformation_bot.pinformation import PinformationBot
-from pinformation_bot.pins import EmbedPin, Pin, TextPin
+from pinformation_bot.pins import PinUnion
 
 log = logging.getLogger(__name__)
 
@@ -22,20 +22,29 @@ async def handle_reply(ctx: commands.Context[PinformationBot], msg: str, success
     _ = await ctx.reply(msg, ephemeral=reply)
 
 
-async def delete_old_message(channel: discord.TextChannel, message_id: int | None):
+async def delete_old_message(channel: discord.abc.Messageable, message_id: int | None):
+    if not message_id:
+        return
+
     try:
-        if not message_id:
-            return
-        await channel.delete_messages([discord.Object(id=message_id)])  # noqa
+        if isinstance(channel, discord.TextChannel):
+            partial_msg = channel.get_partial_message(message_id)
+            await partial_msg.delete()
+        else: # Fallback if somehow this isn't a text channel
+            msg = await channel.fetch_message(message_id)
+            await msg.delete()
+
     except discord.NotFound:
-        log.warning(f"Failed to find & delete last message in channel {channel.name}")
+        channel_name = getattr(channel, "name", f"Channel {getattr(channel, 'id', 'unknown')}")
+        log.warning(f"Failed to find & delete last message in {channel_name}")
     except discord.HTTPException as e:
-        log.warning(f"Failed to delete last message in channel {channel.name} with HTTP exception: {e}")
+        channel_name = getattr(channel, "name", f"Channel {getattr(channel, 'id', 'unknown')}")
+        log.warning(f"Failed to delete last message in {channel_name} with HTTP exception: {e}")
 
 
 async def get_pin(
     ctx: commands.Context[PinformationBot], bot: PinformationBot, channel_id: int
-) -> TextPin | EmbedPin | None:
+) -> PinUnion | None:
     if pin := bot.pins.get(channel_id):
         return pin
     _ = await ctx.reply("No active pin in this channel!", ephemeral=True)

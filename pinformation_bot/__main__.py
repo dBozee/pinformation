@@ -1,7 +1,5 @@
 import logging
-from json import loads
 from os import environ
-from typing import Any
 
 import discord
 from dotenv import load_dotenv
@@ -10,30 +8,22 @@ from pinformation_bot.bot_config import JSON_FILE, BotConfig
 from pinformation_bot.pinformation import PinformationBot
 
 INTENTS = discord.Intents.default()
-INTENTS.message_content = True
-INTENTS.members = True
+INTENTS.message_content = True  # noqa
+INTENTS.members = True  # noqa
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
-def get_config() -> BotConfig:
-    config_file = JSON_FILE.open("r")
-
-    config_dict: dict[str, Any] = loads(config_file.read())
-    config_file.close()
-
-    return BotConfig(**config_dict)
-
 
 def main() -> None:
-    loaded_config: BotConfig = get_config()
+    loaded_config: BotConfig = BotConfig.load_from_json(JSON_FILE)
 
     bot = PinformationBot(config=loaded_config)
     bot.run(environ.get("DISCORD_TOKEN", ""))
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    _ = load_dotenv()
     try:
         log.info("Starting bot...")
         main()
