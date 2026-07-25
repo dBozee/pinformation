@@ -18,7 +18,6 @@ discord.utils.setup_logging(level=logging.DEBUG, root=False)
 
 INTENTS = discord.Intents.default()
 INTENTS.message_content = True  # noqa
-INTENTS.members = True  # noqa
 
 
 class PinformationBot(commands.Bot):

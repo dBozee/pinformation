@@ -1,15 +1,10 @@
 import logging
 from os import environ
 
-import discord
 from dotenv import load_dotenv
 
 from pinformation_bot.bot_config import JSON_FILE, BotConfig
 from pinformation_bot.pinformation import PinformationBot
-
-INTENTS = discord.Intents.default()
-INTENTS.message_content = True  # noqa
-INTENTS.members = True  # noqa
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
