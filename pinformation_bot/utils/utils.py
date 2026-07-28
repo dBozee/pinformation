@@ -1,12 +1,17 @@
 import logging
 
 import discord
+from discord.app_commands import CheckFailure
 from discord.role import Role
 
 from pinformation_bot.pinformation import PinformationBot
 from pinformation_bot.pins import PinUnion
 
 log = logging.getLogger(__name__)
+
+
+class NotPermittedException(CheckFailure):
+    pass
 
 
 async def handle_reply(
@@ -104,4 +109,4 @@ async def check_permitted(interaction: discord.Interaction[PinformationBot]) -> 
     await handle_reply(interaction, "You are not authorized to use this command!", ephemeral=True)
     cmd_name = interaction.command.name if interaction.command else "unknown"
     log.warning(f"{interaction.user.name}({interaction.user.id}): attempted to use the {cmd_name} command.")
-    return False
+    raise NotPermittedException

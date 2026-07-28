@@ -45,7 +45,8 @@ class PinformationBot(commands.Bot):
 
     @override
     async def setup_hook(self) -> None:
-        # add cogs
+        self.tree.on_error = self.on_app_command_error
+
         for cog in self.config.cogs:
             await self.load_extension(cog)
         if self.config.debug:
@@ -54,7 +55,6 @@ class PinformationBot(commands.Bot):
 
         await self.set_log_channel()
 
-        # sync all commands
         synced = await self.tree.sync()
         log.info(f"Added main cog commands... Synced {len(synced)} commands")
 
@@ -104,6 +104,15 @@ class PinformationBot(commands.Bot):
         user = interaction.user
         channel_id = interaction.channel_id or "Unknown Channel"
         log.info(f"[{action_msg}] executed by {user.name} ({user.id}) in channel {channel_id}")
+
+    @staticmethod
+    async def on_app_command_error(
+        _interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+    ) -> None:
+        if isinstance(error, discord.app_commands.CheckFailure):
+            return
+
+        log.error("Unhandled exception in app command:", exc_info=error)
 
 
 def truncate(text: str, max_len: int = 1024) -> str:
