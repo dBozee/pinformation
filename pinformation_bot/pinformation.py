@@ -17,14 +17,15 @@ discord.utils.setup_logging()
 discord.utils.setup_logging(level=logging.DEBUG, root=False)
 
 INTENTS = discord.Intents.default()
+ACTIVITY = discord.CustomActivity(name="Please stop blocking me")
 
 
 class PinformationBot(commands.Bot):
     def __init__(self, config: BotConfig):
         super().__init__(
             intents=INTENTS,
-            command_prefix=commands.when_mentioned_or(config.prefix),
-            activity=discord.Activity(type=discord.ActivityType.playing, name="Keeping up with chat."),
+            command_prefix=[],
+            activity=ACTIVITY,
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 

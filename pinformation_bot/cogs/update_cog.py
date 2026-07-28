@@ -1,3 +1,4 @@
+import logging
 from asyncio import create_task
 from datetime import UTC, datetime
 
@@ -12,18 +13,21 @@ from ..pins import EmbedPin, PinUnion
 from ..utils.channel_lock import ChannelLock
 from ..utils.utils import check_permitted, delete_old_message, get_pin, handle_reply
 
+log = logging.getLogger(__name__)
+
 
 class UpdateCog(commands.Cog):
     def __init__(self, pin_bot: PinformationBot) -> None:
         self.bot: PinformationBot = pin_bot
 
-    # --- Slash Commands using Modals for Text/Title Inputs ---
-
     @app_commands.command(name="updatetext", description="Update this channel's existing pin's text/description")
     @app_commands.check(check_permitted)
     async def update_pin(self, interaction: discord.Interaction[PinformationBot]):
         """Opens a multi-line modal pop-up to edit the pin text."""
-        pin = self.bot.pins.get(interaction.channel_id)  # pyright: ignore[reportArgumentType]
+        pin: PinUnion | None = self.bot.pins.get(interaction.channel_id)  # pyright: ignore[reportArgumentType]
+        if pin is None:
+            _ = await interaction.response.send_message(f"Failed to find pin in {interaction.channel.mention}.")  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+            return
         current_text = pin.text if pin else None
 
         async def modal_callback(inter: discord.Interaction[PinformationBot], text: str | None):
@@ -31,7 +35,6 @@ class UpdateCog(commands.Cog):
                 _ = await inter.response.send_message("Cannot remove text from a text pin...", ephemeral=True)
                 return
 
-            # Acknowledge the modal submit
             _ = await inter.response.defer(ephemeral=True)
 
             await self._update_pin_attribute(inter, "text", text, require_embed=False)
@@ -40,10 +43,11 @@ class UpdateCog(commands.Cog):
         modal = MultilineModal(
             title="Update Pin Text",
             label="Pin Description / Text",
-            style=discord.TextStyle.paragraph,  # Multi-line field
+            style=discord.TextStyle.paragraph,
             default_value=current_text,
             callback_func=modal_callback,
             required=False,
+            text_only=pin.pin_type == "text",
         )
         _ = await interaction.response.send_modal(modal)
 
@@ -51,7 +55,10 @@ class UpdateCog(commands.Cog):
     @app_commands.check(check_permitted)
     async def update_title(self, interaction: discord.Interaction[PinformationBot]):
         """Opens a modal pop-up to edit the pin title."""
-        pin = self.bot.pins.get(interaction.channel_id)  # pyright: ignore[reportArgumentType]
+        pin: PinUnion | None = self.bot.pins.get(interaction.channel_id)  # pyright: ignore[reportArgumentType]
+        if pin is None:
+            _ = await interaction.response.send_message(f"Failed to find pin in {interaction.channel.mention}.")  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+            return
         current_title = getattr(pin, "title", None) if pin else None
 
         async def modal_callback(inter: discord.Interaction[PinformationBot], title: str | None):
@@ -68,8 +75,6 @@ class UpdateCog(commands.Cog):
             required=False,
         )
         _ = await interaction.response.send_modal(modal)
-
-    # --- Standard Slash Commands (Direct Arguments) ---
 
     @app_commands.command(name="updateurl", description="Update this channel's existing pin's url (embed only)")
     @app_commands.check(check_permitted)
@@ -107,8 +112,6 @@ class UpdateCog(commands.Cog):
         _ = await interaction.response.defer(ephemeral=True)
         await self._update_pin_attribute(interaction, "color", color)
         await self.bot.log_pin_change(interaction, f"Updated pin color in {interaction.channel.mention} to: {color}")  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownMemberType]
-
-    # --- Helper Methods ---
 
     async def _update_pin_attribute(
         self,

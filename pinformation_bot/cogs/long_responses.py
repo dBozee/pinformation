@@ -2,11 +2,7 @@ help_pins = [
     {"name": "pintext", "value": "• Pin plain text to a channel. Supports emojis and hyperlinks."},
     {
         "name": "pinembed",
-        "value": (
-            "• Pin an embed to a channel.\n"
-            "• *unfortunately, discord does not support multiline command arguments for slash commands.*\n"
-            'To use multiline, use the prefix command: <prefix>pinembed "text"'
-        ),
+        "value": "• Pin an embed to a channel.\n",
     },
     {"name": "pinstop", "value": "• Stop the pin in the current channel. undo with /pinrestart"},
     {"name": "pinrestart", "value": "• Restart the last active pin in the current channel."},

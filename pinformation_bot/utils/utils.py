@@ -34,7 +34,6 @@ async def delete_old_message(
         return
 
     try:
-        # Use bulk delete endpoint for TextChannel/VoiceChannel/Thread
         if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.Thread)):
             await channel.delete_messages([discord.Object(id=message_id)])
         elif isinstance(channel, discord.abc.Messageable):  # fallback for DM channels, PartialMessageable, etc.

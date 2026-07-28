@@ -2,6 +2,7 @@ import logging
 from asyncio import Task, create_task, gather
 from collections.abc import Coroutine
 from datetime import UTC, datetime, timedelta
+from textwrap import dedent
 from typing import cast
 
 import discord
@@ -73,6 +74,7 @@ class PinCog(commands.Cog, name="Pin"):
             default_value=None,
             callback_func=modal_callback,
             required=True,
+            text_only=True,
         )
         _ = await interaction.response.send_modal(modal)
 
@@ -242,14 +244,19 @@ class PinCog(commands.Cog, name="Pin"):
             type="rich",
             color=self.bot.config.embed_color or 14517504,
         )
+        _ = embed.add_field(
+            name="Multiline Inputs:",
+            value=dedent("""
+            Emojis can be used like :kekw:, mention roles/users by @role/user, mention channels with #channel.
+            All of the above can also be used with the ID for a given role/user/channel, or by using the <> syntax
+            """),
+        )
         for pin_field in long_responses.help_pins:
             _ = embed.add_field(**pin_field, inline=False)
         for mgmt_field in long_responses.help_management:
             _ = embed.add_field(**mgmt_field, inline=False)
 
         _ = await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    # --- Private Helpers ---
 
     async def _handle_counter(self, pin: PinUnion, message: discord.Message) -> None:
         message_id = message.channel.id

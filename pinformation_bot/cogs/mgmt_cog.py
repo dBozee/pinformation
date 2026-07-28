@@ -41,7 +41,6 @@ class ManagementCog(commands.Cog, name="Main"):
         _ = embed.add_field(name="Prefix", value=f"`{self.bot.config.prefix}`")
         _ = embed.add_field(name="Ping", value=f"`{round(self.bot.latency * 1000)}`ms")
 
-        # Send embed directly using interaction response/followup
         if interaction.response.is_done():
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:

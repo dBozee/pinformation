@@ -46,8 +46,7 @@ Pre-requisites:
 ## Commands
 
 The bot currently offers two sets of [cogs](https://discordpy.readthedocs.io/en/stable/ext/commands/cogs.html);
-management and pins. All commands have a slash(/) command option available, however, you can also set the prefix in the
-config.json file.
+management and pins. All commands have a slash(/) command option available.
 
 - The management cog contains all commands pertaining to managing the bot and user permissions around the bot.
 - The pins cog contains all commands pertaining to starting, stopping, tracking and updating the pins.
