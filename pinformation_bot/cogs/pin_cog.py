@@ -5,12 +5,15 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from discord.message import Message, PartialMessage
 from discord.state import TextChannel
 
+from pinformation_bot.modals.multiline_modal import MultilineModal
+
 from ..pinformation import PinformationBot
-from ..pins import EmbedPin, PinUnion, SpeedTypes, TextPin
+from ..pins import EmbedPin, PinChannel, PinUnion, SpeedTypes, TextPin
 from ..utils.channel_lock import ChannelLock
 from ..utils.utils import check_permitted, delete_old_message, get_pin, handle_reply
 from . import long_responses
@@ -36,155 +39,204 @@ class PinCog(commands.Cog, name="Pin"):
         if channel_id in self.bot.pins and (pin_data := self.bot.pins.get(channel_id)) and pin_data.active:
             await self._handle_counter(pin_data, message)
 
-    @commands.hybrid_command(name="pintext")
-    @commands.check(check_permitted)
+    @app_commands.command(name="pintext", description="Pin a text-based message to the current channel.")
+    @app_commands.check(check_permitted)
     async def pin_text(
         self,
-        ctx: commands.Context[PinformationBot],
-        *,
-        text: str,
+        interaction: discord.Interaction[PinformationBot],
         speed: int = 1,
         speed_type: SpeedTypes = SpeedTypes.messages,
-        reply: bool = True,
     ):
-        """Pin a text-based message to the current channel. Can use emojis."""
-        channel = ctx.channel
-        async with ChannelLock(channel.id):
-            pin = await self._create_text_pin(channel, channel.id, text, speed, speed_type)
-            await handle_reply(ctx, "Added text pin!", reply=reply)
-        if not ctx.author.bot:
-            await self.bot.log_pin_change(ctx, "Added Text Pin", pin)
+        """Pops up a modal to receive the multiline text pin content."""
+        channel = interaction.channel
+        if not channel:
+            return
 
-    @commands.hybrid_command(name="pinembed")
-    @commands.check(check_permitted)
+        async def modal_callback(inter: discord.Interaction[PinformationBot], text: str | None):
+            if not text:
+                await handle_reply(inter, "Text content cannot be empty!", ephemeral=True)
+                return
+
+            _ = await inter.response.defer(ephemeral=True)
+
+            async with ChannelLock(channel.id):
+                pin = await self._create_text_pin(channel, channel.id, text, speed, speed_type)
+                await handle_reply(inter, "Added text pin!")
+
+            if not inter.user.bot:
+                await self.bot.log_pin_change(inter, "Added Text Pin", pin)
+
+        modal = MultilineModal(
+            title="Create Text Pin",
+            label="Pin Content",
+            style=discord.TextStyle.paragraph,
+            default_value=None,
+            callback_func=modal_callback,
+            required=True,
+        )
+        _ = await interaction.response.send_modal(modal)
+
+    @app_commands.command(name="pinembed", description="Pin an embed-based message to the current channel.")
+    @app_commands.check(check_permitted)
     async def pin_embed(
         self,
-        ctx: commands.Context[PinformationBot],
-        *,
-        text: str | None = None,
+        interaction: discord.Interaction[PinformationBot],
         title: str | None = None,
         url: str | None = None,
-        image: str | None = None,
+        image_url: str | None = None,
+        image_file: discord.Attachment | None = None,
         color: int | None = None,
         speed: int = 1,
         speed_type: SpeedTypes = SpeedTypes.messages,
-        reply: bool = True,
     ):
-        """Pin an embed-based message to the current channel."""
-        channel = ctx.channel
-        if not any((text, title, image)):
-            _ = await ctx.reply("You must provide at least one of text, title, or image!", ephemeral=True)
+        """Pops up a modal to collect embed body text, with native attachment support."""
+        channel = interaction.channel
+        if not channel:
             return
-        async with ChannelLock(channel.id):
-            if not image and ctx.message.attachments:
-                image = ctx.message.attachments[0].url
-            if text is None:
-                text = ''
-            if not title and url:
-                title = url
-            pin = await self._create_embed_pin(
-                channel, channel.id, title, text, url, image, color or self.bot.config.embed_color, speed, speed_type
-            )
-            await handle_reply(ctx, "Added embed pin!", reply=reply)
-        if not ctx.author.bot:
-            await self.bot.log_pin_change(ctx, "Added Embed Pin", pin)
 
-    @commands.hybrid_command(name="pinstop")
-    @commands.check(check_permitted)
-    async def pin_stop(self, ctx: commands.Context[PinformationBot]):
-        """
-        Stop active pin in this channel.
-        """
-        channel_id: int = ctx.channel.id
-        if not (pin := await get_pin(ctx, self.bot, channel_id)):
+        final_image = image_url or (image_file.url if image_file else None)
+
+        async def modal_callback(inter: discord.Interaction[PinformationBot], text: str | None):
+            body_text = text or ""
+            embed_title = title
+
+            if not any((body_text, embed_title, final_image)):
+                await handle_reply(inter, "You must provide at least one of text, title, or image!", ephemeral=True)
+                return
+
+            _ = await inter.response.defer(ephemeral=True)
+
+            if not embed_title and url:
+                embed_title = url
+
+            async with ChannelLock(channel.id):
+                pin = await self._create_embed_pin(
+                    channel,
+                    channel.id,
+                    embed_title,
+                    body_text,
+                    url,
+                    final_image,
+                    color or self.bot.config.embed_color,
+                    speed,
+                    speed_type,
+                )
+                await handle_reply(inter, "Added embed pin!")
+
+            if not inter.user.bot:
+                await self.bot.log_pin_change(inter, "Added Embed Pin", pin)
+
+        modal = MultilineModal(
+            title="Create Embed Pin",
+            label="Embed Text / Description",
+            style=discord.TextStyle.paragraph,
+            default_value=None,
+            callback_func=modal_callback,
+            required=False,
+        )
+        _ = await interaction.response.send_modal(modal)
+
+    @app_commands.command(name="pinstop", description="Stop active pin in this channel.")
+    @app_commands.check(check_permitted)
+    async def pin_stop(self, interaction: discord.Interaction[PinformationBot]):
+        channel_id: int | None = interaction.channel_id
+        if not channel_id or not (pin := await get_pin(interaction, self.bot, channel_id)):
             return
-        async with ChannelLock(ctx.channel.id):
-            _ = create_task(delete_old_message(ctx.message.channel, pin.last_message))
+
+        _ = await interaction.response.defer(ephemeral=True)
+
+        async with ChannelLock(channel_id):
+            if interaction.channel:
+                _ = create_task(delete_old_message(interaction.channel, pin.last_message))
             pin.active = False
             pin.last_message = None
-            _ = await ctx.reply("Removed pin!", ephemeral=ctx.interaction is not None)
+            await handle_reply(interaction, "Removed pin!")
             self.bot.database.remove_pin(channel_id)
             ChannelLock.cleanup(channel_id)
-            await self.bot.log_pin_change(ctx, "Removed Pin", pin)
+            await self.bot.log_pin_change(interaction, "Removed Pin", pin)
 
-    @commands.hybrid_command(name="pinrestart")
-    @commands.check(check_permitted)
-    async def pin_restart(self, ctx: commands.Context[PinformationBot]):
-        """
-        Restart the last active pin in this channel.
-        """
-        channel_id: int = ctx.channel.id
-        if not (pin := await get_pin(ctx, self.bot, channel_id)):
+    @app_commands.command(name="pinrestart", description="Restart the last active pin in this channel.")
+    @app_commands.check(check_permitted)
+    async def pin_restart(self, interaction: discord.Interaction[PinformationBot]):
+        channel_id: int | None = interaction.channel_id
+        channel = interaction.channel
+        if not channel_id or not channel or not (pin := await get_pin(interaction, self.bot, channel_id)):
             return
+
+        _ = await interaction.response.defer(ephemeral=True)
+
         async with ChannelLock(channel_id):
-            new_message = await pin.send_to(ctx.channel)
+            new_message = await pin.send_to(channel)
             pin.last_message = new_message.id
             pin.last_message_dt = datetime.now(UTC)
             pin.active = True
-            if ctx.interaction is not None:
-                _ = await ctx.reply("re-activated pin!", ephemeral=True)
-            await self.bot.log_pin_change(ctx, "Restarted Pin", pin)
+            await handle_reply(interaction, "Re-activated pin!")
+            await self.bot.log_pin_change(interaction, "Restarted Pin", pin)
             _ = create_task(self._db_update(pin))
 
-    @commands.hybrid_command(name="getpintext")
-    @commands.check(check_permitted)
-    async def get_pin_text(self, ctx: commands.Context[PinformationBot]) -> None:
-        """
-        Get the text content of this channel's pin.
-        Requires active pin.
-        """
-        channel_id: int = ctx.channel.id
-        if not (pin := await get_pin(ctx, self.bot, channel_id)):
+    @app_commands.command(name="getpintext", description="Get the text content of this channel's pin.")
+    @app_commands.check(check_permitted)
+    async def get_pin_text(self, interaction: discord.Interaction[PinformationBot]) -> None:
+        channel_id: int | None = interaction.channel_id
+        if not channel_id or not (pin := await get_pin(interaction, self.bot, channel_id)):
             return
+
+        _ = await interaction.response.defer(ephemeral=True)
+
         async with ChannelLock(channel_id):
             embed = discord.Embed()
             _ = embed.add_field(name="Pin Type", value=f"`{pin.pin_type}`")
             _ = embed.add_field(name="Pin Speed", value=f"`{pin.speed} {pin.speed_type}`")
             _ = embed.add_field(name="Pin text", value=f"```json\n{pin.text}```", inline=False)
-            _ = await ctx.reply(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @commands.hybrid_command(name="pinspeed")
-    @commands.check(check_permitted)
-    async def pin_speed(self, ctx: commands.Context[PinformationBot], speed: int, speed_type: SpeedTypes | None = None):
-        """
-        Set the speed for this channel's pin.
-        Requires active pin.
-        """
-        channel_id: int = ctx.channel.id
-        if not (pin := await get_pin(ctx, self.bot, channel_id)):
+    @app_commands.command(name="pinspeed", description="Set the speed for this channel's pin.")
+    @app_commands.check(check_permitted)
+    async def pin_speed(
+        self,
+        interaction: discord.Interaction[PinformationBot],
+        speed: int,
+        speed_type: SpeedTypes | None = None,
+    ):
+        channel_id: int | None = interaction.channel_id
+        if not channel_id or not (pin := await get_pin(interaction, self.bot, channel_id)):
             return
+
+        _ = await interaction.response.defer(ephemeral=True)
+
         async with ChannelLock(channel_id):
             pin.speed = speed
             if speed_type is not None:
                 pin.speed_type = speed_type
-            _ = await ctx.reply(f"Set #{ctx.channel.name} pin to {speed} {pin.speed_type}", ephemeral=True)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
-            await self.bot.log_pin_change(ctx, f"Changed speed to {speed} {pin.speed_type}", pin)
 
-    @commands.hybrid_command(name="allpins")
-    @commands.check(check_permitted)
-    async def get_all_pins(self, ctx: commands.Context[PinformationBot]):
-        """
-        Get a listing of all active pins in all channels
-        """
+            channel_name = getattr(interaction.channel, "name", f"Channel {channel_id}")
+            await handle_reply(interaction, f"Set #{channel_name} pin to {speed} {pin.speed_type}")
+            await self.bot.log_pin_change(interaction, f"Changed speed to {speed} {pin.speed_type}", pin)
+
+    @app_commands.command(name="allpins", description="Get a listing of all active pins in all channels.")
+    @app_commands.check(check_permitted)
+    async def get_all_pins(self, interaction: discord.Interaction[PinformationBot]):
         if not self.bot.pins:
-            _ = await ctx.reply("No active pins!", ephemeral=True)
+            await handle_reply(interaction, "No active pins!", ephemeral=True)
             return
+
         embed = discord.Embed(
             title="All Pins",
             type="rich",
             color=self.bot.config.embed_color or 14517504,
         )
         for channel_id, pin_obj in self.bot.pins.items():
-            # FUTURE: embed max field is 25. What if there are more than 25 pins?
+            target_channel = self.bot.get_channel(channel_id)
+            mention: str = target_channel.mention if target_channel else f"<#{channel_id}>"  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownVariableType]
             _ = embed.add_field(
-                name=f"{self.bot.get_channel(channel_id).mention}",  # pyright: ignore [reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownMemberType]
+                name=mention,
                 value=pin_obj.get_self_data(),
                 inline=False,
             )
-        _ = await ctx.reply(embed=embed, ephemeral=True)
+        _ = await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @commands.hybrid_command(name="pinhelp")
-    async def pin_help(self, ctx: commands.Context[PinformationBot]):
+    @app_commands.command(name="pinhelp", description="Pinformation command reference.")
+    async def pin_help(self, interaction: discord.Interaction[PinformationBot]):
         embed = discord.Embed(
             title="Pinformation command reference",
             type="rich",
@@ -195,7 +247,9 @@ class PinCog(commands.Cog, name="Pin"):
         for mgmt_field in long_responses.help_management:
             _ = embed.add_field(**mgmt_field, inline=False)
 
-        _ = await ctx.reply(embed=embed, ephemeral=True)
+        _ = await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    # --- Private Helpers ---
 
     async def _handle_counter(self, pin: PinUnion, message: discord.Message) -> None:
         message_id = message.channel.id
@@ -211,7 +265,7 @@ class PinCog(commands.Cog, name="Pin"):
                         await self._update_pin_message(message)
                 case SpeedTypes.seconds:
                     last_dt = pin.last_message_dt
-                    channel_name = message.channel.name  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownVariableType]
+                    channel_name = getattr(message.channel, "name", f"Channel {message.channel.id}")
 
                     if not last_dt and pin.last_message:
                         try:
@@ -228,7 +282,7 @@ class PinCog(commands.Cog, name="Pin"):
                     if delta <= datetime.now(tz=UTC):
                         await self._update_pin_message(message)
                     else:
-                        log.debug(f"Time not yet elapsed in ${channel_name}. Next update: {delta.isoformat()}")
+                        log.debug(f"Time not yet elapsed in {channel_name}. Next update: {delta.isoformat()}")
 
     async def _update_pin_message(self, message: discord.Message):
         channel_name = getattr(message.channel, "name", f"Channel {message.channel.id}")
@@ -291,7 +345,6 @@ class PinCog(commands.Cog, name="Pin"):
             log.exception(f"Failed to restart pin in channel {pin.channel_id}:")
 
     async def _restart_active_pins(self, pin_list: list[PinUnion]) -> None:
-        """Restores cached pins from DB models concurrently on bot startup."""
         if not pin_list:
             return
 
@@ -300,7 +353,7 @@ class PinCog(commands.Cog, name="Pin"):
 
     async def _create_text_pin(
         self,
-        channel: discord.abc.Messageable,
+        channel: PinChannel,
         channel_id: int,
         text: str,
         speed: int = 1,
@@ -311,7 +364,7 @@ class PinCog(commands.Cog, name="Pin"):
 
         pin = TextPin(channel_id=channel_id, text=text, speed=speed, speed_type=speed_type)
         self.bot.pins[channel_id] = pin
-        message = await channel.send(pin.text)
+        message = await pin.send_to(channel)
         pin.last_message = message.id
         pin.last_message_dt = datetime.now(UTC)
         self.bot.database.add_or_update_pin(pin)
@@ -319,7 +372,7 @@ class PinCog(commands.Cog, name="Pin"):
 
     async def _create_embed_pin(
         self,
-        channel: discord.abc.Messageable,
+        channel: PinChannel,
         channel_id: int,
         title: str | None = None,
         text: str = "",
@@ -328,7 +381,7 @@ class PinCog(commands.Cog, name="Pin"):
         color: int | None = None,
         speed: int = 1,
         speed_type: SpeedTypes = SpeedTypes.messages,
-    ):
+    ) -> EmbedPin:
         if existing_pin := self.bot.pins.get(channel_id):
             _ = create_task(delete_old_message(channel, existing_pin.last_message))
 
@@ -343,7 +396,7 @@ class PinCog(commands.Cog, name="Pin"):
             speed_type=speed_type,
         )
         self.bot.pins[channel_id] = pin
-        message = await channel.send(embed=pin.embed)
+        message = await pin.send_to(channel)
         pin.last_message = message.id
         pin.last_message_dt = datetime.now(UTC)
         self.bot.database.add_or_update_pin(pin)

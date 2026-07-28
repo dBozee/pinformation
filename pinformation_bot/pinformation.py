@@ -17,7 +17,6 @@ discord.utils.setup_logging()
 discord.utils.setup_logging(level=logging.DEBUG, root=False)
 
 INTENTS = discord.Intents.default()
-INTENTS.message_content = True  # noqa
 
 
 class PinformationBot(commands.Bot):
@@ -69,15 +68,19 @@ class PinformationBot(commands.Bot):
         return list(self.extensions)
 
     async def log_pin_change(
-        self, ctx: commands.Context[PinformationBot], command_type: str, pin: PinUnion | None = None
+        self, interaction: discord.Interaction[PinformationBot], command_type: str, pin: PinUnion | None = None
     ) -> None:
         if self.log_channel is None:
-            log.info(f"{command_type}: {ctx.author.name}|{ctx.author.id}")
+            log.info(f"{command_type}: {interaction.user.name}|{interaction.user.id}")
             return
+
         msg = f"{command_type:.250}..." if len(command_type) > 225 else command_type
         embed = discord.Embed(title=f"{msg}", timestamp=datetime.now(tz=UTC))
-        _ = embed.add_field(name="User", value=ctx.author.mention)
-        _ = embed.add_field(name="Channel", value=ctx.channel.mention)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        _ = embed.add_field(name="User", value=interaction.user.mention)
+
+        if interaction.channel:
+            _ = embed.add_field(name="Channel", value=interaction.channel.mention)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+
         if pin is not None:
             max_len = 999
             _ = embed.add_field(name="Pin Type", value=pin.pin_type)
@@ -95,8 +98,11 @@ class PinformationBot(commands.Bot):
         _ = await self.log_channel.send(embed=embed)
 
     @staticmethod
-    def log_action(ctx: commands.Context[PinformationBot], message: str) -> None:
-        log.info(f"{ctx.author.name}({ctx.author.id}): {message}")
+    def log_action(interaction: discord.Interaction, action_msg: str) -> None:
+        """Logs bot actions performed via interactions."""
+        user = interaction.user
+        channel_id = interaction.channel_id or "Unknown Channel"
+        log.info(f"[{action_msg}] executed by {user.name} ({user.id}) in channel {channel_id}")
 
 
 def truncate(text: str, max_len: int = 1024) -> str:

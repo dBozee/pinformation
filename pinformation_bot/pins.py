@@ -1,10 +1,18 @@
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated, Any, ClassVar, Literal, Self, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, override
 
 import discord
 from discord.embeds import Embed
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+
+if TYPE_CHECKING:
+    from discord.abc import Messageable
+    from discord.interactions import InteractionChannel
+
+    type PinChannel = InteractionChannel | Messageable
+else:
+    type PinChannel = Messageable  # stupid runtime override...
 
 
 class SpeedTypes(StrEnum):
@@ -46,7 +54,7 @@ class PinModel[T: PinType](BaseModel):
         clean_row = {k: v for k, v in row.items() if v is not None}  # pyright: ignore[reportAny]
         return PinAdapter.validate_python(clean_row)
 
-    async def send_to(self, _channel: discord.abc.Messageable) -> discord.Message:
+    async def send_to(self, _channel: PinChannel) -> discord.Message:
         raise NotImplementedError
 
 
@@ -68,8 +76,8 @@ class TextPin(PinModel[Literal["text"]]):
         )
 
     @override
-    async def send_to(self, channel: discord.abc.Messageable) -> discord.Message:
-        return await channel.send(content=self.text)
+    async def send_to(self, channel: PinChannel) -> discord.Message:
+        return await channel.send(content=self.text)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAttributeAccessIssue]
 
 
 class EmbedPin(PinModel[Literal["embed"]]):
@@ -129,8 +137,8 @@ class EmbedPin(PinModel[Literal["embed"]]):
         )
 
     @override
-    async def send_to(self, channel: discord.abc.Messageable) -> discord.Message:
-        return await channel.send(embed=self.embed)
+    async def send_to(self, channel: PinChannel) -> discord.Message:
+        return await channel.send(embed=self.embed)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAttributeAccessIssue]
 
 
 PinUnion = Annotated[TextPin | EmbedPin, Field(discriminator="pin_type")]
