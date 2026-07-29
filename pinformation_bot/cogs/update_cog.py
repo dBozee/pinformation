@@ -35,10 +35,15 @@ class UpdateCog(commands.Cog):
                 _ = await inter.response.send_message("Cannot remove text from a text pin...", ephemeral=True)
                 return
 
-            _ = await inter.response.defer(ephemeral=True)
+            if text and len(text) > 2000:
+                await handle_reply(
+                    inter, f"Content exceeds Discord's 2,000 character limit ({len(text)} chars).", ephemeral=True
+                )
+                return
 
-            await self._update_pin_attribute(inter, "text", text, require_embed=False)
-            await self.bot.log_pin_change(inter, f"Updated pin text in {inter.channel.mention} to: {text}")  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+            _ = await inter.response.defer(ephemeral=True)
+            updated_pin = await self._update_pin_attribute(inter, "text", text, require_embed=False)
+            await self.bot.log_pin_change(inter, f"Updated pin text in {inter.channel.mention}", pin=updated_pin)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
 
         modal = MultilineModal(
             title="Update Pin Text",
@@ -63,8 +68,8 @@ class UpdateCog(commands.Cog):
 
         async def modal_callback(inter: discord.Interaction[PinformationBot], title: str | None):
             _ = await inter.response.defer(ephemeral=True)
-            await self._update_pin_attribute(inter, "title", title)
-            await self.bot.log_pin_change(inter, f"Updated pin title in {inter.channel.mention} to: {title}")  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+            updated_pin = await self._update_pin_attribute(inter, "title", title)
+            await self.bot.log_pin_change(inter, f"Updated pin title in {inter.channel.mention}", pin=updated_pin)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
 
         modal = MultilineModal(
             title="Update Pin Title",
@@ -80,8 +85,8 @@ class UpdateCog(commands.Cog):
     @app_commands.check(check_permitted)
     async def update_url(self, interaction: discord.Interaction[PinformationBot], url: str):
         _ = await interaction.response.defer(ephemeral=True)
-        await self._update_pin_attribute(interaction, "url", url)
-        await self.bot.log_pin_change(interaction, f"Updated pin url in {interaction.channel.mention} to: {url}")  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownMemberType]
+        updated_pin = await self._update_pin_attribute(interaction, "url", url)
+        await self.bot.log_pin_change(interaction, f"Updated pin url in {interaction.channel.mention}", pin=updated_pin)  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownMemberType]
 
     @app_commands.command(
         name="updateimage", description="Update this channel's existing pin's image url or attachment"
@@ -100,18 +105,23 @@ class UpdateCog(commands.Cog):
         if not final_url and attachment:
             final_url = attachment.url
 
-        await self._update_pin_attribute(interaction, "image", final_url)
+        updated_pin = await self._update_pin_attribute(interaction, "image", final_url)
         await self.bot.log_pin_change(
             interaction,
-            f"Updated pin image url in {interaction.channel.mention} to: {final_url or 'none'}",  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+            f"Updated pin image in {interaction.channel.mention}",  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+            pin=updated_pin,
         )
 
     @app_commands.command(name="updatecolor", description="Update this channel's existing pin's color (embed only)")
     @app_commands.check(check_permitted)
     async def update_color(self, interaction: discord.Interaction[PinformationBot], color: int):
         _ = await interaction.response.defer(ephemeral=True)
-        await self._update_pin_attribute(interaction, "color", color)
-        await self.bot.log_pin_change(interaction, f"Updated pin color in {interaction.channel.mention} to: {color}")  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownMemberType]
+        updated_pin = await self._update_pin_attribute(interaction, "color", color)
+        await self.bot.log_pin_change(
+            interaction,
+            f"Updated pin color in {interaction.channel.mention}",  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownMemberType]
+            pin=updated_pin,
+        )
 
     async def _update_pin_attribute(
         self,
@@ -119,19 +129,19 @@ class UpdateCog(commands.Cog):
         attribute_name: str,
         value: str | int | None,
         require_embed: bool = True,
-    ):
+    ) -> PinUnion | None:
         """Generic method to update a pin attribute using Interaction"""
         channel = interaction.channel
         if channel is None:
-            return
+            return None
 
         async with ChannelLock(channel.id):
             pin = await get_pin(interaction, self.bot, channel.id)
             if not pin:
-                return
+                return None
 
             if require_embed and not await self._is_embed(interaction, pin):
-                return
+                return None
 
             if pin.last_message:
                 _ = create_task(delete_old_message(channel, pin.last_message))
@@ -146,6 +156,7 @@ class UpdateCog(commands.Cog):
             pin.last_message_dt = datetime.now(UTC)
             self.bot.database.add_or_update_pin(pin)
             await handle_reply(interaction, f"Updated pin {attribute_name}!")
+            return pin
 
     @staticmethod
     async def _is_embed(interaction: discord.Interaction[PinformationBot], pin: PinUnion) -> bool:

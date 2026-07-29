@@ -13,7 +13,7 @@ from discord.state import TextChannel
 
 from pinformation_bot.modals.multiline_modal import MultilineModal
 
-from ..pinformation import PinformationBot
+from ..pinformation import PinformationBot, truncate
 from ..pins import EmbedPin, PinChannel, PinUnion, SpeedTypes, TextPin
 from ..utils.channel_lock import ChannelLock
 from ..utils.utils import check_permitted, delete_old_message, get_pin, handle_reply
@@ -58,8 +58,15 @@ class PinCog(commands.Cog, name="Pin"):
                 await handle_reply(inter, "Text content cannot be empty!", ephemeral=True)
                 return
 
-            _ = await inter.response.defer(ephemeral=True)
+            if len(text) > 2000:
+                await handle_reply(
+                    inter,
+                    f"Content exceeds Discord's 2,000 character limit after resolving mentions/emojis ({len(text)} chars).",  # noqa: E501
+                    ephemeral=True,
+                )
+                return
 
+            _ = await inter.response.defer(ephemeral=True)
             async with ChannelLock(channel.id):
                 pin = await self._create_text_pin(channel, channel.id, text, speed, speed_type)
                 await handle_reply(inter, "Added text pin!")
@@ -186,10 +193,10 @@ class PinCog(commands.Cog, name="Pin"):
         _ = await interaction.response.defer(ephemeral=True)
 
         async with ChannelLock(channel_id):
-            embed = discord.Embed()
+            embed = discord.Embed(description=f"```json\n{truncate(pin.text, 4096)}```")
             _ = embed.add_field(name="Pin Type", value=f"`{pin.pin_type}`")
             _ = embed.add_field(name="Pin Speed", value=f"`{pin.speed} {pin.speed_type}`")
-            _ = embed.add_field(name="Pin text", value=f"```json\n{pin.text}```", inline=False)
+            _ = embed.add_field(name="Text Length", value=f"`{len(pin.text)}`")
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="pinspeed", description="Set the speed for this channel's pin.")

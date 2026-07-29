@@ -30,6 +30,7 @@ class MultilineModal(Modal, Generic[BotT]):
         callback_func: Callable[[discord.Interaction[BotT], str | None], Coroutine[Any, Any, None]],
         required: bool = True,
         text_only: bool = False,
+        max_length: int = 2000,
     ):
         super().__init__(title=title)
         self.callback_func: Callable[[discord.Interaction[BotT], str | None], Coroutine[Any, Any, None]] = callback_func
@@ -40,7 +41,7 @@ class MultilineModal(Modal, Generic[BotT]):
             style=style,
             default=default_value or "",
             required=required,
-            max_length=4000 if style == discord.TextStyle.paragraph else 256,
+            max_length=max_length,
         )
         _ = self.add_item(self.input_field)
 
@@ -61,9 +62,13 @@ class MultilineModal(Modal, Generic[BotT]):
             resolved_val = self.resolve_custom_emojis(raw_val, _emoji_cache)
             if guild:
                 resolved_val = self.resolve_channel_mentions(resolved_val, guild)
-                if not self.text_only:  # don't allow user/role mentions in textpins
+                if not self.text_only:
                     resolved_val = await self.resolve_mentions(resolved_val, guild)
 
+            if self.input_field.max_length and len(resolved_val) > self.input_field.max_length:
+                resolved_val = resolved_val[: self.input_field.max_length]
+
+        # noinspection PyUnnecessaryCast
         typed_interaction = cast(discord.Interaction[BotT], interaction)
         await self.callback_func(typed_interaction, resolved_val)
 
